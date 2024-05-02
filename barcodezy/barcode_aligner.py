@@ -4,7 +4,7 @@ import pandas as pd
 def barcode_scores(reads_file: str, barcode_path: str, 
                    insert_len: int, out_file_path: str) -> None:
     # loading reads from the experiment
-    long_reads = parasail.sequences_from_file(f'{reads_file}.gz')
+    long_reads = parasail.sequences_from_file(reads_file)
     
     # loading possible barcode sequences
     barcodes = parasail.sequences_from_file(barcode_path)
@@ -99,7 +99,6 @@ def barcode_scores(reads_file: str, barcode_path: str,
         df_dict['plasmid_aligned'].append(True)
         df_dict['seq_len'].append(read_len)
         df_dict['MCS_len'].append(MCS_len)
-        df_dict['max_reverse_align'].append(0)
         df_dict['seq_id'].append(read_id)
         # get restriction site booleans
         [df_dict[rs[0]].append(rs[1] in longread_doubled[MCS_start:MCS_end]) for rs in restriction_sites]

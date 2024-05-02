@@ -1,0 +1,29 @@
+[build-system]
+requires = [
+    "setuptools"
+]
+
+[project]
+name = "barcodezy"
+version = "0.1"
+authors = [
+    {name="Zach Goode"},
+    {email="goodez@ohsu.edu"}
+]
+requires-python = ">=3.8"
+dependencies = [
+    "pandas >= 2.1.1",
+    "parasail >= 1.3.4",
+    "scikit-bio >= 0.5.9"
+]
+
+readme = "README.md"
+
+[project.urls]
+repository = "https://github.com/barcodezy/barcodezy"
+
+[tool.setuptools]
+packages = ["barcodezy"]
+
+[project.scripts]
+barcodezy = "barcodezy.main:main"

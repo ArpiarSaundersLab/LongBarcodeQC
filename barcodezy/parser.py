@@ -25,13 +25,13 @@ def getArgs():
                         type=str,
                         required=False,
                         default='a.31')
-    parser.add_argument('-b, --barcodes',
+    parser.add_argument('-b', '--barcodes',
                         help='Path to barcode fasta file. '
                         'One barcode per line. Fasta headers must be '
                         'unique names.',
                         type=str,
                         required=True)
-    parser.add_argument('-l, --insert_length',
+    parser.add_argument('-l', '--insert_length',
                         help='Integer length of expected insert size cloned into MCS ',
                         type=int,
                         required=True)
