@@ -30,7 +30,10 @@ def main(args=None):
         preprocess.rename_reads(trimmed_read_file, experiment_name)
 
     # map trimmed reads to plasmid with minimap2
-    preprocess.mm2_align(output_dir, experiment_name, ref_plasmid, trimmed_read_file)
+    summary_align_counts = preprocess.mm2_align(output_dir, 
+                                                experiment_name, 
+                                                ref_plasmid, 
+                                                trimmed_read_file)
     # expected path to mm2 aligned reads:
     mapped_reads = f'{output_dir}/{experiment_name}.aligned.fa.gz'
 
