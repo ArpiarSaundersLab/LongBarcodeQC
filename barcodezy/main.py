@@ -3,6 +3,7 @@ import os
 from barcodezy import parser
 from barcodezy import preprocess
 from barcodezy import barcode_aligner
+from barcodezy import analysis
 
 def main(args=None):
     args = parser.getArgs() # grab user arguments
@@ -39,6 +40,9 @@ def main(args=None):
 
     # generate barcode alignment & read stats written to csv output
     barcode_aligner.barcode_scores(mapped_reads, barcode_design, insert_length, output_file)
+
+    # default plots
+    analysis.read_length_hist(output_dir, output_file)
 
 if __name__ == "__main__":
     main()

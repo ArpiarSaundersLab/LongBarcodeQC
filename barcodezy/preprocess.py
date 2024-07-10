@@ -12,12 +12,13 @@ def rename_reads(raw_read_file, exp_name) -> None:
         longread.metadata['ogid'] = longread.metadata['id']
         longread.metadata['id'] = f'{exp_name}_{i}'
 
-        sys.stdout.write(f'{i+1}/{len(long_reads)}')
-        sys.stdout.flush()
-        sys.stdout.write('\r')
+        #sys.stdout.write(f'{i+1}/{len(long_reads)}')
+        #sys.stdout.flush()
+        #sys.stdout.write('\r')
 
-    sys.stdout.flush()
-    sys.stdout.write('\r')
+    #sys.stdout.flush()
+    #sys.stdout.write('\r')
+    print(f'Writing file...')
 
     def data_gen():
         for read in long_reads:

@@ -30,4 +30,4 @@ packages = ["barcodezy"]
 barcodezy = "barcodezy.main:main"
 
 [tool.setuptools.package-data]
-'plasmid'
+'plasmids'
