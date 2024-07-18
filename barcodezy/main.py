@@ -39,10 +39,11 @@ def main(args=None):
     mapped_reads = f'{output_dir}/{experiment_name}.aligned.fa.gz'
 
     # generate barcode alignment & read stats written to csv output
-    barcode_aligner.barcode_scores(mapped_reads, barcode_design, insert_length, output_file)
+    align = barcode_aligner.barcode_scores(mapped_reads, barcode_design, insert_length)
+    align.to_csv(output_file, index=False)
 
     # default plots
-    analysis.read_length_hist(output_dir, output_file)
+    analysis.read_length_hist(output_dir, output_file, summary_align_counts)
 
 if __name__ == "__main__":
     main()

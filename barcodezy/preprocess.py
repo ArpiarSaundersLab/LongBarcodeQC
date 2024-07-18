@@ -18,11 +18,11 @@ def rename_reads(raw_read_file, exp_name) -> None:
 
     #sys.stdout.flush()
     #sys.stdout.write('\r')
-    print(f'Writing file...')
 
     def data_gen():
         for read in long_reads:
             yield read
+    print(f'Writing file...')
     skIO.write(data_gen(), format='fastq', variant='sanger', into=raw_read_file)
 
 def mm2_align(out_dir, exp_name, plasmid_path, trimmed_reads_path) -> Dict[str, int]:
@@ -49,7 +49,11 @@ def mm2_align(out_dir, exp_name, plasmid_path, trimmed_reads_path) -> Dict[str, 
         os.system(f'samtools index {output_sorted_bam_file} && rm {output_bam_file} && rm {out_dir}/.tmp.ref.fa')
         print(f'\nAlignment finished. Flipping reverse reads and writing fasta outputs')
 
-        # write positive strand alignments to file
+        # write positive strand alignments to fasta (only reads aligned to reference name, not ecoli)
+        # SAM flags used:
+        ## 2048: supplementary alignments
+        ## 4:    unmapped
+        ## 16:   reverse strand
         os.system(f'samtools view -F 2048 -F 4 -F 16 -h {output_sorted_bam_file} \'{ref_name}\' | \
                   samtools fasta - > {output_fa_aligned}')
         # reverse complement negative strand alignments and append to same file

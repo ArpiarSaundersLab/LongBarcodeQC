@@ -1,8 +1,7 @@
 import parasail
 import pandas as pd
 
-def barcode_scores(reads_file: str, barcode_path: str, 
-                   insert_len: int, out_file_path: str) -> None:
+def barcode_scores(reads_file: str, barcode_path: str, insert_len: int) -> None:
     # loading reads from the experiment
     long_reads = parasail.sequences_from_file(reads_file)
     
@@ -106,4 +105,4 @@ def barcode_scores(reads_file: str, barcode_path: str,
     print(f'Finished read processing. Writing csv output. Processed {i} reads')
 
     output_df = pd.DataFrame.from_dict(df_dict)
-    output_df.to_csv(out_file_path, index=False)
+    return output_df
