@@ -43,7 +43,7 @@ def main(args=None):
     align.to_csv(output_file, index=False)
 
     # default plots
-    analysis.read_length_hist(output_dir, output_file, summary_align_counts)
+    analysis.report_gen(output_file, output_dir, summary_align_counts)
 
 if __name__ == "__main__":
     main()

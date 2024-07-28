@@ -65,15 +65,15 @@ def mm2_align(out_dir, exp_name, plasmid_path, trimmed_reads_path) -> Dict[str, 
         
         # store counts for aligned reads, unaligned reads, ecoli reads
         summary_dict = {}
-        summary_dict['count_ecoli'] = int(os.popen(f'samtools view -F 4 -F 2048 {output_sorted_bam_file} | \
-                                                    grep -v \'{ref_name}\' | \
-                                                    wc -l').read())
-        summary_dict['count_aligned'] = int(os.popen(f'samtools view -F 4 -F 2048 {output_sorted_bam_file} | \
+        summary_dict['Target plasmid'] = int(os.popen(f'samtools view -F 4 -F 2048 {output_sorted_bam_file} | \
                                                     grep \'{ref_name}\' | \
                                                     wc -l').read())
-        summary_dict['count_unaligned'] = int(os.popen(f'samtools view -f 4 {output_sorted_bam_file} | wc -l').read())
+        summary_dict['E. coli'] = int(os.popen(f'samtools view -F 4 -F 2048 {output_sorted_bam_file} | \
+                                                    grep -v \'{ref_name}\' | \
+                                                    wc -l').read())
+        summary_dict['Unaligned'] = int(os.popen(f'samtools view -f 4 {output_sorted_bam_file} | wc -l').read())
 
-        print(f'\n{summary_dict["count_aligned"]} plasmid reads aligned.')
-        print(f'{summary_dict["count_ecoli"]} bacterial reads aligned.')
-        print(f'{summary_dict["count_unaligned"]} undetermined reads.\n')
+        print(f'\n{summary_dict["Target plasmid"]} plasmid reads aligned')
+        print(f'{summary_dict["E. coli"]} bacterial reads aligned')
+        print(f'{summary_dict["Unaligned"]} undetermined reads\n')
         return summary_dict
