@@ -102,7 +102,7 @@ def barcode_scores(reads_file: str, barcode_path: str, insert_len: int) -> None:
         # get restriction site booleans
         [df_dict[rs[0]].append(rs[1] in longread_doubled[MCS_start:MCS_end]) for rs in restriction_sites]
 
-    print(f'Finished read processing\n Writing csv output\n Processed {i} reads')
+    print(f'Finished read processing\nWriting csv output\nProcessed {i} reads')
 
     output_df = pd.DataFrame.from_dict(df_dict)
     return output_df

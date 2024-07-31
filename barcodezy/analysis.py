@@ -35,7 +35,6 @@ def report_gen(csv_name: str, outpath: str, alignment_counts: str):
     ax.hist(csv.seq_len, bins=40, edgecolor='black')
     ax.set_xlabel('Read length (bp)')
     ax.set_ylabel('count')
-    ax.set_title('Read length distribution')
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
     ax.set_xlim(left=0)
