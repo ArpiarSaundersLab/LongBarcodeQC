@@ -2,4 +2,5 @@
 *.egg-info
 __pycache__
 *.bam*
-out/
+barcodezy/test/out/
+barcodezy/test/misc/

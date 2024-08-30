@@ -32,12 +32,19 @@ def getArgs():
                         type=str,
                         required=True)
     parser.add_argument('-l', '--insert_length',
-                        help='Integer length of expected insert size cloned into MCS ',
+                        help='Integer length of expected insert size cloned into MCS.',
                         type=int,
                         required=True)
+    parser.add_argument('-r', '--enzymes',
+                        help='Path to text file with restriction site names and their '
+                        'sequences. Define one site per line, with the name and sequence '
+                        'separated by comma.',
+                        type=str,
+                        required=False)
     return parser.parse_args()
 
-def validateArgs(input_path, output_path, plasmid_path, barcode_path) -> None:
+def validateArgs(input_path, output_path, plasmid_path, 
+                 barcode_path, restriction_path) -> None:
     # exit if input path does not exist
     if not os.path.isdir(input_path):
         print(f'Error: Input path does not exist or is not a directory: {input_path}')
@@ -60,3 +67,9 @@ def validateArgs(input_path, output_path, plasmid_path, barcode_path) -> None:
     if not os.path.exists(barcode_path):
         print(f'Error: Barcode fasta file does not exist: {barcode_path}')
         sys.exit(1)
+    
+    # verify restriction enzyme path exists
+    if restriction_path:
+        if not os.path.exists(restriction_path):
+            print(f'Error: Restriction enzyme file does not exist: {restriction_path}')
+            sys.exit(1)

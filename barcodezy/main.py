@@ -13,13 +13,15 @@ def main(args=None):
     ref_plasmid = os.path.normpath(args.plasmid)
     barcode_design = os.path.normpath(args.barcodes)
     insert_length = args.insert_length
+    restriction_sites = args.enzymes
     # output
     output_dir = os.path.normpath(args.output)
     experiment_name = os.path.basename(output_dir)
     output_file = f'{output_dir}/{experiment_name}.csv'
 
     # validate user options 
-    parser.validateArgs(read_dir, output_dir, ref_plasmid, barcode_design)
+    parser.validateArgs(read_dir, output_dir, ref_plasmid, 
+                        barcode_design, restriction_sites)
 
     # remove any adaptor sequences (requires porechop), condense reads into a single file
     trimmed_read_file = f'{output_dir}/{experiment_name}_trimmed.fastq'
@@ -39,7 +41,8 @@ def main(args=None):
     mapped_reads = f'{output_dir}/{experiment_name}.aligned.fa.gz'
 
     # generate barcode alignment & read stats written to csv output
-    align = barcode_aligner.barcode_scores(mapped_reads, barcode_design, insert_length)
+    align = barcode_aligner.barcode_scores(mapped_reads, barcode_design, 
+                                           insert_length, restriction_sites)
     align.to_csv(output_file, index=False)
 
     # default plots

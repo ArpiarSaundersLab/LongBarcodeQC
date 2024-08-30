@@ -1,29 +1,29 @@
 import sys, os
-from skbio import io as skIO
-from skbio import DNA as skDNA
 from importlib.resources import files
 from typing import Dict
 
 def rename_reads(raw_read_file, exp_name) -> None:
-    long_reads = [skDNA(seq) for seq in skIO.read(raw_read_file, format='fastq', variant='sanger')]
-
-    for i,longread in enumerate(long_reads):
-        # rename the read something more sensible, but keep the old ones too
-        longread.metadata['ogid'] = longread.metadata['id']
-        longread.metadata['id'] = f'{exp_name}_{i}'
-
-        #sys.stdout.write(f'{i+1}/{len(long_reads)}')
-        #sys.stdout.flush()
-        #sys.stdout.write('\r')
-
-    #sys.stdout.flush()
-    #sys.stdout.write('\r')
-
-    def data_gen():
-        for read in long_reads:
-            yield read
     print(f'Writing file...')
-    skIO.write(data_gen(), format='fastq', variant='sanger', into=raw_read_file)
+    with open(raw_read_file, 'r') as reads:
+        tmp_rewrite_file = f'{raw_read_file[0:-5]}_renamed.fastq'
+        with open(tmp_rewrite_file, 'w') as out:
+            read_count=0
+            for i,line in enumerate(reads):
+                if i % 4 == 0:
+                    read_count+=1
+                    id = line.strip().split(' ')
+                    out.write(f'@{exp_name}_{read_count} {' '.join(id[1:])}\n')
+                if i % 4 == 1:
+                    seq = line.strip()
+                    out.write(f'{seq}\n')
+                if i % 4 == 2:
+                    strand = line.strip()
+                    out.write(f'{strand}\n')
+                if i % 4 == 3:
+                    qual = line.strip()
+                    out.write(f'{qual}\n')
+
+    os.replace(tmp_rewrite_file, raw_read_file)
 
 def mm2_align(out_dir, exp_name, plasmid_path, trimmed_reads_path) -> Dict[str, int]:
     output_bam_file = f'{out_dir}/{exp_name}.bam'

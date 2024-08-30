@@ -1,7 +1,8 @@
 import parasail
 import pandas as pd
 
-def barcode_scores(reads_file: str, barcode_path: str, insert_len: int) -> None:
+def barcode_scores(reads_file: str, barcode_path: str, 
+                   insert_len: int, enzymes) -> None:
     # loading reads from the experiment
     long_reads = parasail.sequences_from_file(reads_file)
     
@@ -22,6 +23,13 @@ def barcode_scores(reads_file: str, barcode_path: str, insert_len: int) -> None:
         ('MauBI','CGCGCGCG'),
         ('BsiWI','CGTACG')
     ]
+
+    if enzymes: # add user defined enzymes if provided
+        with open(enzymes, 'r') as fh:
+            for rs in fh:
+                name = rs.strip().split(',')[0]
+                seq = rs.strip().split(',')[1]
+                restriction_sites.append((name,seq))
 
     # build common MCS flanking region to anchor to the barcode region for a more precise alignment
     MCS_left_flank = ('CAAAAAAGAAGAGAAAGGTAGATCCAAAAAAGAAGAGAAAGGTAGATCCAAAAAAGAAGAGAAAGGTAGGATCCA'
