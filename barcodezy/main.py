@@ -10,10 +10,13 @@ def main(args=None):
     
     # inputs
     read_dir = os.path.normpath(args.input)
-    ref_plasmid = os.path.normpath(args.plasmid)
+    if args.plasmid:
+        ref_plasmid = os.path.normpath(args.plasmid)
+    else: ref_plasmid = args.plasmid
     barcode_design = os.path.normpath(args.barcodes)
     insert_length = args.insert_length
     restriction_sites = args.enzymes
+    flag_a31 = args.a31
     # output
     output_dir = os.path.normpath(args.output)
     experiment_name = os.path.basename(output_dir)
@@ -32,21 +35,22 @@ def main(args=None):
         os.system(cmd_str)
         preprocess.rename_reads(trimmed_read_file, experiment_name)
 
+    # generate ref if SBARRO
+    if args.SBARRO:
+        preprocess.generate_ref(output_dir, insert_length)
+
     # map trimmed reads to plasmid with minimap2
-    summary_align_counts = preprocess.mm2_align(output_dir, 
-                                                experiment_name, 
-                                                ref_plasmid, 
-                                                trimmed_read_file)
-    # expected path to mm2 aligned reads:
-    mapped_reads = f'{output_dir}/{experiment_name}.aligned.fa.gz'
+    summary_align_counts = preprocess.mm2_align(output_dir, experiment_name, 
+                                                ref_plasmid, trimmed_read_file,
+                                                flag_a31, args.SBARRO)
 
     # generate barcode alignment & read stats written to csv output
-    align = barcode_aligner.barcode_scores(mapped_reads, barcode_design, 
-                                           insert_length, restriction_sites)
+    align = barcode_aligner.barcode_scores(output_dir, barcode_design, insert_length, 
+                                           restriction_sites, flag_a31, args.SBARRO)
     align.to_csv(output_file, index=False)
 
     # default plots
-    analysis.report_gen(output_file, output_dir, summary_align_counts)
+    analysis.report_gen(output_dir, summary_align_counts)
 
 if __name__ == "__main__":
     main()

@@ -1,10 +1,13 @@
 import parasail
 import pandas as pd
+import numpy as np
+import os
 
-def barcode_scores(reads_file: str, barcode_path: str, 
-                   insert_len: int, enzymes) -> None:
+def barcode_scores(outpath: str, barcode_path: str, 
+                   insert_len: int, enzymes, a31, SBARRO) -> None:
+    experiment_name = os.path.basename(outpath)
     # loading reads from the experiment
-    long_reads = parasail.sequences_from_file(reads_file)
+    long_reads = parasail.sequences_from_file(f'{outpath}/{experiment_name}.aligned.fa.gz')
     
     # loading possible barcode sequences
     barcodes = parasail.sequences_from_file(barcode_path)
@@ -32,18 +35,19 @@ def barcode_scores(reads_file: str, barcode_path: str,
                 restriction_sites.append((name,seq))
 
     # build common MCS flanking region to anchor to the barcode region for a more precise alignment
-    MCS_left_flank = ('CAAAAAAGAAGAGAAAGGTAGATCCAAAAAAGAAGAGAAAGGTAGATCCAAAAAAGAAGAGAAAGGTAGGATCCA'
-                      'GATAACTGATCATAATCAGCCATACCACATTTGGAATTCGTCGAGGGGGCCGCCGGCGAGGCCGGCCATGAATTC')
-    MCS_right_flank = ('ACCGGTTACTTGCGATCGCAATCGACGCGTTCCTGCAGGACGCGCGCGGCTAGACATGAAAAAAACTAACACTCC'
-                       'TCCGGTACCGCCACCATGGACGTGGTGAATCAGCTGGTGGCTGGGGGTCAGTTCCGGGTGGTCAAGGAGCCCCTT')
-    # insert N sequence of expected insert length between flanks
-    MCS_flank = MCS_left_flank + 'N'*insert_len + MCS_right_flank  
+    # These flanking regions are common for all c.18 derivatives. Add NNN sequence of user specified
+    # length between them.
+    if SBARRO:
+        MCS_left_flank = ('AAAAAGAAGAGAAAGGTAGGATCCAGATAACTGATCATAATCAGCCATACCACATTTGGAATTCGTCGAGGGGGC')
+        MCS_right_flank = ('GCTAGACATGAAAAAAACTAACACTCCTCCGGTACCGCCACCATGGACGTGGTGAATCAGCTGGTGGCTGGGGGT')
+        # insert N sequence of expected insert length between flanks
+        MCS_flank = MCS_left_flank + 'N'*insert_len + MCS_right_flank  
 
     # main dict to hold lists (columns) of read statistics
     df_dict = {
         'seq_id': [],
         'seq_len': [],
-        'plasmid_aligned': [],
+        'read_type': [],
         'MCS_score': [],
         'MCS_len': []
     }
@@ -57,8 +61,9 @@ def barcode_scores(reads_file: str, barcode_path: str,
 
     #custom align matrix
     user_matrix = parasail.matrix_create("ACGT", match=5, mismatch=-3)
-    # define alignment profile of MCS_flank before loop (should improve speed)
-    MCS_query = parasail.profile_create_16(MCS_flank, user_matrix)
+    if SBARRO:
+        # define alignment profile of MCS_flank before loop (should improve speed)
+        MCS_query = parasail.profile_create_16(MCS_flank, user_matrix)
     # iterate through reads and extract output stats
     j=1000
     for i,longread in enumerate(long_reads):
@@ -75,42 +80,116 @@ def barcode_scores(reads_file: str, barcode_path: str,
         read_id = longread.name.decode()
         read_len = len(longread)
 
-        # anchoring alignment; double the sequence to mimic linear sequence
-        longread_doubled = longread.seq.decode() * 2
-        align_MCS = parasail.sg_dx_striped_profile_16(MCS_query, longread_doubled, 5, 1)
+        if SBARRO:
+            # anchoring alignment; double the sequence to mimic linear sequence
+            longread_doubled = longread.seq.decode() * 2
+            align_MCS = parasail.sg_dx_striped_profile_16(MCS_query, longread_doubled, 5, 1)
 
-        MCS_start = align_MCS.end_ref - len(MCS_flank)
-        MCS_end = align_MCS.end_ref
-        MCS_score = align_MCS.score
-        MCS_len = len(longread_doubled[MCS_start:MCS_end])
+            MCS_start = align_MCS.end_ref - len(MCS_flank)
+            MCS_end = align_MCS.end_ref
+            MCS_score = align_MCS.score
+            MCS_len = len(longread_doubled[MCS_start:MCS_end])
         
-        # catch reads where MCS flank isn't fully covered
-        if MCS_len < len(MCS_flank):
-            df_dict['MCS_score'].append(0)
-            df_dict['plasmid_aligned'].append(False)
-            df_dict['seq_len'].append(read_len)
-            df_dict['MCS_len'].append(0)
-            df_dict['seq_id'].append(read_id)
-            [df_dict[bc[0]].append(0) for bc in bc_name_seq]
-            [df_dict[rs[0]].append(rs[1] in longread.seq.decode()) for rs in restriction_sites]
-            continue
+            # catch reads where MCS flank isn't fully covered
+            if (MCS_len < len(MCS_flank)):
+                df_dict['MCS_score'].append(np.nan)
+                df_dict['read_type'].append('plasmid_failed_anchor')
+                df_dict['seq_len'].append(read_len)
+                df_dict['MCS_len'].append(np.nan)
+                df_dict['seq_id'].append(read_id)
+                [df_dict[bc[0]].append(np.nan) for bc in bc_name_seq]
+                [df_dict[rs[0]].append(rs[1] in longread.seq.decode()) for rs in restriction_sites]
+                continue
 
         # get barcode scores
-        bc_query = parasail.profile_create_16(longread_doubled[MCS_start:MCS_end], user_matrix)
+        if SBARRO:
+            bc_query = parasail.profile_create_16(longread_doubled[MCS_start:MCS_end], user_matrix)
+        else:
+            bc_query = parasail.profile_create_16(longread_doubled, user_matrix)
         for bc in bc_name_seq:
             bc_align = parasail.sg_qx_striped_profile_16(bc_query, bc[1], 5, 1)
             df_dict[bc[0]].append(bc_align.score)
 
         # append df values
-        df_dict['MCS_score'].append(MCS_score)
-        df_dict['plasmid_aligned'].append(True)
+        if SBARRO:
+            df_dict['MCS_score'].append(MCS_score)
+            df_dict['MCS_len'].append(MCS_len)
+        else:
+            df_dict['MCS_score'].append(np.nan)
+            df_dict['MCS_len'].append(np.nan)
+        df_dict['read_type'].append('plasmid')
         df_dict['seq_len'].append(read_len)
-        df_dict['MCS_len'].append(MCS_len)
         df_dict['seq_id'].append(read_id)
         # get restriction site booleans
         [df_dict[rs[0]].append(rs[1] in longread_doubled[MCS_start:MCS_end]) for rs in restriction_sites]
 
-    print(f'Finished read processing\nWriting csv output\nProcessed {i} reads')
+    #### 
+    # call a31 barcodes if user flags a31
+    ####
+    if a31:
+        long_reads_a31 = parasail.sequences_from_file(f'{outpath}/{experiment_name}.a31.aligned.fa.gz')
+        for k,longread in enumerate(long_reads_a31):
+            # progress counter per 1000 reads
+            i+=1
+            if i % 1000 == 0 and i > 0:
+                print(f'{j} reads processed')
+                j+=1000
+
+            # avoid weird sequence objects possibly causing segmentation fault
+            if k > (len(long_reads_a31) - 2):
+                #print('Warning: skipped empty parasail seq object')
+                continue
+
+            read_id = longread.name.decode()
+            read_len = len(longread)
+
+            # double the sequence to mimic linear sequence
+            longread_doubled = longread.seq.decode() * 2
+
+            # get barcode scores
+            bc_query = parasail.profile_create_16(longread_doubled, user_matrix)
+            for bc in bc_name_seq:
+                bc_align = parasail.sg_qx_striped_profile_16(bc_query, bc[1], 5, 1)
+                df_dict[bc[0]].append(bc_align.score)
+
+            # append df values
+            df_dict['MCS_score'].append(np.nan)
+            df_dict['read_type'].append('a31')
+            df_dict['seq_len'].append(read_len)
+            df_dict['MCS_len'].append(np.nan)
+            df_dict['seq_id'].append(read_id)
+            # get restriction site booleans
+            [df_dict[rs[0]].append(rs[1] in longread_doubled) for rs in restriction_sites]
+    
+    ### ecoli reads
+    long_reads_ecoli = parasail.sequences_from_file(f'{outpath}/{experiment_name}.ecoli.aligned.fa.gz') 
+    for z,longread in enumerate(long_reads_ecoli):
+        # progress counter per 1000 reads
+        i+=1
+        if i % 1000 == 0 and i > 0:
+            print(f'{j} reads processed')
+            j+=1000
+
+        # avoid weird sequence objects possibly causing segmentation fault
+        if z > (len(long_reads_ecoli) - 2):
+            #print('Warning: skipped empty parasail seq object')
+            continue
+
+        read_id = longread.name.decode()
+        read_len = len(longread)
+        for bc in bc_name_seq:
+            df_dict[bc[0]].append(np.nan)
+
+        # append df values
+        df_dict['MCS_score'].append(np.nan)
+        df_dict['read_type'].append('ecoli')
+        df_dict['seq_len'].append(read_len)
+        df_dict['MCS_len'].append(np.nan)
+        df_dict['seq_id'].append(read_id)
+        # get restriction site booleans
+        [df_dict[rs[0]].append(np.nan) for rs in restriction_sites]
+
+    print(f'Finished read processing\nWriting csv output')
 
     output_df = pd.DataFrame.from_dict(df_dict)
     return output_df

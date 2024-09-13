@@ -23,8 +23,7 @@ def getArgs():
                         'concatenate the circular plasmid sequence to itself '
                         'to optimize alignment.',
                         type=str,
-                        required=False,
-                        default='a.31')
+                        required=False)
     parser.add_argument('-b', '--barcodes',
                         help='Path to barcode fasta file. '
                         'One barcode per line. Fasta headers must be '
@@ -40,6 +39,19 @@ def getArgs():
                         'sequences. Define one site per line, with the name and sequence '
                         'separated by comma.',
                         type=str,
+                        required=False)
+    parser.add_argument('-a', '--a31',
+                        help='Option to add a31 alignment. Mainly used '
+                        'to detect contamination from a31 plasmid. This will flag a31 reads '
+                        'in the final output and score barcodes against them.',
+                        action='store_true',
+                        required=False)
+    parser.add_argument('-S', '--SBARRO',
+                        help='Use this option if the plasmid is part of the SBARRO system '
+                             '(derived from c.18). Reference will be generated with '
+                             'NNN sequence inserted into the MCS (length of NNNs equal to '
+                             'provided insert length).',
+                        action='store_true',
                         required=False)
     return parser.parse_args()
 
@@ -61,9 +73,10 @@ def validateArgs(input_path, output_path, plasmid_path,
         sys.exit(1)
     
     # verify plasmid and barcode fasta files exist
-    if not os.path.exists(plasmid_path):
-        print(f'Error:Plasmid fasta file does not exist: {plasmid_path}')
-        sys.exit(1)
+    if plasmid_path:
+        if not os.path.exists(plasmid_path):
+            print(f'Error: Plasmid fasta file does not exist: {plasmid_path}')
+            sys.exit(1)
     if not os.path.exists(barcode_path):
         print(f'Error: Barcode fasta file does not exist: {barcode_path}')
         sys.exit(1)

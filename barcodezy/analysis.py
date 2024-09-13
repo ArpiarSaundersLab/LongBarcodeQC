@@ -5,7 +5,7 @@ from jinja2 import Environment, PackageLoader, select_autoescape
 import base64
 from io import BytesIO
 
-def read_length_hist(outpath: str, csv_name: str, alignment_counts: dict):
+def read_length_hist(outpath: str):
     experiment_name = os.path.basename(outpath)
     csv = pd.read_csv(f'{outpath}/{experiment_name}.csv')
 
@@ -20,7 +20,7 @@ def read_length_hist(outpath: str, csv_name: str, alignment_counts: dict):
     ax.grid(alpha=0.4)
     fig.savefig(f'{outpath}/{experiment_name}_read_length_distribution.png')
 
-def report_gen(csv_name: str, outpath: str, alignment_counts: str):
+def report_gen(outpath: str, alignment_counts: str):
     experiment_name = os.path.basename(outpath)
     csv = pd.read_csv(f'{outpath}/{experiment_name}.csv')
 
