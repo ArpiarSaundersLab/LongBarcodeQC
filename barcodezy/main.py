@@ -10,47 +10,42 @@ def main(args=None):
     
     # inputs
     read_dir = os.path.normpath(args.input)
-    if args.plasmid:
-        ref_plasmid = os.path.normpath(args.plasmid)
-    else: ref_plasmid = args.plasmid
     barcode_design = os.path.normpath(args.barcodes)
-    insert_length = args.insert_length
-    restriction_sites = args.enzymes
-    flag_a31 = args.a31
     # output
     output_dir = os.path.normpath(args.output)
-    experiment_name = os.path.basename(output_dir)
-    output_file = f'{output_dir}/{experiment_name}.csv'
+    exp_name = os.path.basename(output_dir)
 
     # validate user options 
-    parser.validateArgs(read_dir, output_dir, ref_plasmid, 
-                        barcode_design, restriction_sites)
+    parser.validateArgs(args)
 
     # remove any adaptor sequences (requires porechop), condense reads into a single file
-    trimmed_read_file = f'{output_dir}/{experiment_name}_trimmed.fastq'
+    trimmed_read_file = f'{output_dir}/{exp_name}_trimmed.fastq'
     if not os.path.exists(trimmed_read_file):
         cmd_str = (f'porechop -i {read_dir} -o {trimmed_read_file} ' 
                    '--no_split --min_trim_size 25 '
                    '--adapter_threshold 97 --check_reads 2000')
         os.system(cmd_str)
-        preprocess.rename_reads(trimmed_read_file, experiment_name)
+        preprocess.rename_reads(trimmed_read_file, exp_name)
 
     # generate ref if SBARRO
     if args.SBARRO:
-        preprocess.generate_ref(output_dir, insert_length)
+        preprocess.generate_ref(output_dir, args.insert_length)
+    # else open ref fasta and concatenate to mimic circularity
+    else:
+        preprocess.process_ref(output_dir, args.plasmid)
 
     # map trimmed reads to plasmid with minimap2
-    summary_align_counts = preprocess.mm2_align(output_dir, experiment_name, 
-                                                ref_plasmid, trimmed_read_file,
-                                                flag_a31, args.SBARRO)
+    summary_align_counts = preprocess.mm2_align(output_dir, trimmed_read_file, args.a31)
 
     # generate barcode alignment & read stats written to csv output
-    align = barcode_aligner.barcode_scores(output_dir, barcode_design, insert_length, 
-                                           restriction_sites, flag_a31, args.SBARRO)
-    align.to_csv(output_file, index=False)
+    align = barcode_aligner.barcode_scores(output_dir, barcode_design, args.flanks,
+                                           args.insert_length, args.enzymes, 
+                                           args.a31, args.SBARRO)
+    # output compressed alignment csv with full set of BC scores and other metrics 
+    align.to_csv(f'{output_dir}/{exp_name}.csv.gz', index=False)
 
-    # default plots
-    analysis.report_gen(output_dir, summary_align_counts)
+    # analysis html and processing of alignment table (z-scores, top BC call, etc) 
+    analysis.report_gen(output_dir, align, summary_align_counts)
 
 if __name__ == "__main__":
     main()

@@ -20,9 +20,9 @@ def read_length_hist(outpath: str):
     ax.grid(alpha=0.4)
     fig.savefig(f'{outpath}/{experiment_name}_read_length_distribution.png')
 
-def report_gen(outpath: str, alignment_counts: str):
+def report_gen(outpath: str, reads_df, alignment_counts: str):
     experiment_name = os.path.basename(outpath)
-    csv = pd.read_csv(f'{outpath}/{experiment_name}.csv')
+    df = reads_df
 
     # alignment summary counts
     alignment_counts['Total'] = sum(alignment_counts.values())
@@ -32,7 +32,7 @@ def report_gen(outpath: str, alignment_counts: str):
     # read length histogram
     plt.style.use('seaborn-v0_8-pastel')
     fig, ax = plt.subplots(figsize=(9,4))
-    ax.hist(csv.seq_len, bins=40, edgecolor='black')
+    ax.hist(df.seq_len, bins=40, edgecolor='black')
     ax.set_xlabel('Read length (bp)')
     ax.set_ylabel('count')
     ax.spines['right'].set_visible(False)
