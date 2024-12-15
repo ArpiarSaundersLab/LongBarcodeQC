@@ -22,12 +22,26 @@ def read_length_hist(outpath: str):
 
 def report_gen(outpath: str, reads_df, alignment_counts: str):
     experiment_name = os.path.basename(outpath)
-    df = reads_df
 
     # alignment summary counts
     alignment_counts['Total'] = sum(alignment_counts.values())
     reads = pd.DataFrame(alignment_counts, index=['Count']).transpose()
     reads = reads.reset_index().rename(columns={'index': 'Alignment type'})
+
+    # scoring table processing
+    df = reads_df.set_index('seq_id')
+    site_columns = [col for col in df if col.startswith('site')]
+    z_scores = (df[site_columns]
+                .sub(df[site_columns].mean(axis=1), axis=0)
+                .div(df[site_columns].std(axis=1), axis=0)
+               )
+    ### continue dev... decide how to handle different site schemes
+    # maybe parse each siteX_posY into unique categories
+    # e.g. STAR-SBARRO: site1_posA, site2_posA, site3_posA
+    # e.g. SBARRO-FISH: site1_posA, site1_posB ... site4_posD
+    # then build a df with top name/z_score for each category
+    # adapt jupyter code in combo_dev to build this
+    
 
     # read length histogram
     plt.style.use('seaborn-v0_8-pastel')
