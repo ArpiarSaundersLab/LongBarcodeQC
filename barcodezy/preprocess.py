@@ -39,7 +39,8 @@ def generate_ref(outpath, insert_len):
     with open(ref_path, 'w') as fh:
         fh.write(f'>SBARRO\n{ref_seq}\n')
 
-    return [ref_path, ref_name]
+    # return ref length for downstream use in output plots
+    return len(upstream_MCS + 'N'*insert_len + downstream_MCS)
 
 def process_ref(outpath, plasmid_path):
     # to hold full ref sequence before concatenation
@@ -52,8 +53,12 @@ def process_ref(outpath, plasmid_path):
                     out.write(line)
                 else:
                     full_seq+=line
-            
-            out.write(full_seq)
+            # remove any whitespace
+            full_seq = ''.join(full_seq.split())
+            full_seq_concat = 2 * full_seq
+            out.write(full_seq_concat.strip())
+    # return ref length for downstream use in output plots
+    return len(full_seq)
 
 def mm2_align(outpath, trimmed_reads_path, a31) -> Dict[str, int]:
     exp_name = os.path.basename(outpath)

@@ -27,12 +27,12 @@ def main(args=None):
         os.system(cmd_str)
         preprocess.rename_reads(trimmed_read_file, exp_name)
 
-    # generate ref if SBARRO
+    # generate ref if SBARRO (also save ref_len for html plotting)
     if args.SBARRO:
-        preprocess.generate_ref(output_dir, args.insert_length)
+        ref_len = preprocess.generate_ref(output_dir, args.insert_length)
     # else open ref fasta and concatenate to mimic circularity
     else:
-        preprocess.process_ref(output_dir, args.plasmid)
+        ref_len = preprocess.process_ref(output_dir, args.plasmid)
 
     # map trimmed reads to plasmid with minimap2
     summary_align_counts = preprocess.mm2_align(output_dir, trimmed_read_file, args.a31)
@@ -45,7 +45,9 @@ def main(args=None):
     align.to_csv(f'{output_dir}/{exp_name}.csv.gz', index=False)
 
     # analysis html and processing of alignment table (z-scores, top BC call, etc) 
-    analysis.report_gen(output_dir, align, summary_align_counts)
+    report = analysis.report_gen(output_dir, align, summary_align_counts, ref_len)
+    # output compressed alignment csv with full set of BC scores and other metrics 
+    report.to_csv(f'{output_dir}/{exp_name}_summary.csv.gz', index=False)
 
 if __name__ == "__main__":
     main()

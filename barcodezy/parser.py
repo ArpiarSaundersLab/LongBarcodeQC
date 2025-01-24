@@ -79,17 +79,24 @@ def validateArgs(args) -> None:
         os.makedirs(output_path)
 
     # exit if output directory already contains files
-    if len(os.listdir(output_path)) > 1:
+    if len(os.listdir(output_path)) > 0:
         # allow <= 1 file to exist to avoid regenerating the trimmed fastq output
         print('Error: Output path is not empty. Remove contents or choose a different output name.')
         sys.exit(1)
     
-    # verify plasmid and barcode fasta files exist
-    if args.plasmid:
+    # verify reference options
+    if args.plasmid: # check if plasmid path exists
         if not os.path.exists(os.path.normpath(plasmid_path)):
             print(f'Error: Plasmid fasta file does not exist: {plasmid_path}')
             sys.exit(1)
-    if not os.path.exists(barcode_path):
+        if args.SBARRO: # don't combine SBARRO and plasmid reference options
+            print('Error: SBARRO option cannot be used with a custom plasmid.')
+            sys.exit(1)
+    elif args.a31 and not args.SBARRO: # require plasmid reference if a31 option is used without SBARRO
+        print('Error: Plasmid reference fasta file must be provided to use the a31 option.'
+              'The default plasmid is a.31. Only use the a.31 option to tag a31 reads.')
+        sys.exit(1)
+    if not os.path.exists(barcode_path): # check if barcode path exists
         print(f'Error: Barcode fasta file does not exist: {barcode_path}')
         sys.exit(1)
     

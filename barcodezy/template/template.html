@@ -13,7 +13,6 @@
             padding-top: 30px;
             /* Add top padding to create space for the icon */
         }
-
         .svg-icon {
             position: absolute;
             top: 10px;
@@ -24,6 +23,11 @@
             /* Size of the icon */
             height: 50px;
             /* Size of the icon */
+        }
+        .svg-container svg {
+            width: 100%;
+            height: auto;
+            margin-bottom: 30px;
         }
     </style>
 </head>
@@ -78,12 +82,16 @@
                     </tbody>
                 </table>
             </div>
+            Total reads: {{ total_reads }}
         </section>
 
         <section class="mt-4">
-            <h2>Read length distribution</h2>
-            <div>
-                <img src="data:image/png;base64,{{ img_base64 }}" alt="Plot Image" class="img-fluid float-left" />
+            <h2>Read length distributions</h2>
+            <div class="container">
+                <div class="svg-container">
+                    {{ read_type }}
+                    {{ insertions }}
+                </div>
             </div>
         </section>
     </div>
