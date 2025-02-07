@@ -102,9 +102,23 @@ def validateArgs(args) -> None:
     
     # verify restriction enzyme path exists
     if args.enzymes:
-        if not os.path.exists(os.path.normpath(restriction_path)):
-            print(f'Error: Restriction enzyme file does not exist: {restriction_path}')
+        rs_path = os.path.normpath(restriction_path)
+        if not os.path.exists(rs_path):
+            print(f'Error: Restriction enzyme file does not exist: {rs_path}')
             sys.exit(1)
+        with open(rs_path, 'r') as fh:
+            for rs in fh:
+                rs = rs.strip().split(',') 
+                if len(rs) != 2: # check if each line has 2 elements (name, seq)
+                    print('Error: Restriction enzyme file must contain one name and sequence '
+                          'per line, separated by a comma.')
+                    sys.exit(1)
+
+                seq = rs.strip().split(',')[1]
+                # very seq is only ACTG
+                if not all(c in {'A', 'C', 'T', 'G'} for c in seq):
+                    print('Error: Provided restriction enzyme sequences must only contain [ACTG]')
+                    sys.exit(1)
     
     # plasmid path and flanks must be provided without SBARRO option
     if not args.SBARRO:

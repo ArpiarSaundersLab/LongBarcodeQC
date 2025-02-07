@@ -16,24 +16,24 @@ def barcode_scores(outpath: str, barcode_path: str, flanks_path,
 
     # define restriction sites
     restriction_sites = [
-        ('AvrII_site1','CCTAGG'),
-        ('KpnI_site2','GGTACC'),
-        ('Pcil_site3','ACATGT'),
-        ('SpeI_site4_1','ACTAGT'),
-        ('PlutI_site4_2','GGCGCC'),
-        ('NotI_site4_3','GCGGCCGC'),
-        ('TspmI_c28','CCCGGG'),
-        ('MreI','CGCCGGCG'),
-        ('MauBI','CGCGCGCG'),
-        ('BsiWI','CGTACG')
+        ('RE_AvrII','CCTAGG'),
+        ('RE_KpnI','GGTACC'),
+        ('RE_PciI','ACATGT'),
+        ('RE_SpeI','ACTAGT'),
+        ('RE_PlutI','GGCGCC'),
+        ('RE_NotI','GCGGCCGC'),
+        ('RE_TspmI','CCCGGG'),
+        ('RE_MreI','CGCCGGCG'),
+        ('RE_MauBI','CGCGCGCG'),
+        ('RE_BsiWI','CGTACG')
     ]
 
     if enzymes: # add user defined enzymes if provided
         with open(os.path.normpath(enzymes), 'r') as fh:
             for rs in fh:
-                name = rs.strip().split(',')[0]
-                seq = rs.strip().split(',')[1]
-                restriction_sites.append((name,seq))
+                name = str(rs.strip().split(',')[0])
+                seq = str(rs.strip().split(',')[1])
+                restriction_sites.append((f'RE_{name}',seq))
 
     # build common MCS flanking region to anchor to the barcode region for a more precise alignment
     # These flanking regions are common for all c.18 derivatives. Add NNN sequence of user specified

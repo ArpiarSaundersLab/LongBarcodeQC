@@ -58,10 +58,13 @@ def read_length_hist(summary_df, hue_group_col: str, max_len: int, title: str):
     if hue_group_col == 'insertions':
     # add insertion group column (categorizes into max insertions vs < max insertions)
         num_pos = len([col for col in df_nofailed.columns if col.endswith('_1st_z_score')])
+        df_nofailed = df_nofailed[df_nofailed.read_type != 'ecoli']
         df_nofailed['ins_group'] = df_nofailed['insertions'] == num_pos
         df_nofailed['ins_group'] = df_nofailed.ins_group.replace({True: f'{num_pos}',
                                                                   False: f'0-{num_pos-1}'})
         hue_group_col = 'ins_group'
+    elif 'RE_' in hue_group_col:
+        df_nofailed = df_nofailed[df_nofailed.read_type != 'ecoli']
 
     plt.figure(figsize=(12, 7))
     sns.histplot(data=df_nofailed[df_nofailed.seq_len < max_len], x='seq_len', 
@@ -105,6 +108,32 @@ def report_gen(outpath: str, reads_df, alignment_counts: str, ref_len: int):
                                       'Read type')
     insertion_hist = read_length_hist(summary, 'insertions', max_len, 
                                       'Number of valid position insertions')
+    
+    # plots for each restriction site
+    rs_plots = []
+    for rs in summary.loc[:, summary.columns.str.contains('RE_')].columns:
+        rs_hist_i = read_length_hist(summary, rs, max_len, 
+                                   f'{rs[3:]} site detection')
+        rs_plots.append(rs_hist_i)
+    
+    # restriction site % table
+    enz_names = summary.loc[:, summary.columns.str.contains('RE_')].columns
+    df_no_ecoli_nofailed = summary[
+        (summary.read_type != 'plasmid_failed_anchor') &
+        (summary.read_type != 'a31_failed_anchor') &
+        (summary.read_type != 'ecoli')
+        ].copy()
+    enz_all = [f'{100*sum(df_no_ecoli_nofailed[x])/df_no_ecoli_nofailed.shape[0]:.2f}%' for x in enz_names]
+    df_plasmid_ranged = df_no_ecoli_nofailed[
+        (df_no_ecoli_nofailed.read_type == 'plasmid') &
+        (df_no_ecoli_nofailed.seq_len > int(ref_len*0.85)) &
+        (df_no_ecoli_nofailed.seq_len < int(ref_len*1.15))
+        ]
+    enz_specific = [f'{100*sum(df_plasmid_ranged[x])/df_plasmid_ranged.shape[0]:.2f}%' for x in enz_names] 
+    enz_df = pd.DataFrame({'Restriction site': [x[3:] for x in enz_names],
+                           'All non-bacterial reads': enz_all, 
+                           'Plasmid of interest reads of expected length': enz_specific})
+
 
     # generate html 
     env = Environment(loader=PackageLoader('barcodezy', 'template'))
@@ -117,7 +146,10 @@ def report_gen(outpath: str, reads_df, alignment_counts: str, ref_len: int):
      'data': align_df.values.tolist(),
      'total_reads': total_reads,
      'read_type': read_type_hist,
-     'insertions': insertion_hist
+     'insertions': insertion_hist,
+     'rs_plots': rs_plots,
+     'headers_enz': enz_df.columns.tolist(),
+     'data_enz': enz_df.values.tolist()
     }
 
     html_report = template.render(context)
