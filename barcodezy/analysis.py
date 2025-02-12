@@ -6,6 +6,7 @@ from jinja2 import Environment, PackageLoader, select_autoescape
 import base64
 from io import StringIO
 import math
+import numpy as np
 
 def z_score_barcode_calling(reads_df, z_thresh=5.5):
     error_msg = ('Could not parse barcode names. Naming scheme must be "siteX_posY_Z."\n'
@@ -26,10 +27,15 @@ def z_score_barcode_calling(reads_df, z_thresh=5.5):
     site_pos_groups = sorted(list(site_pos_groups))
 
     # z score matrix of BC alignment scores
-    z_scores = (reads_df[site_columns].
-                sub(reads_df[site_columns].mean(axis=1), axis=0).
-                div(reads_df[site_columns].std(axis=1), axis=0).
-                fillna(0))
+    # Convert the matrix to a NumPy array and ignore NaNs explicitly
+    global_mean = np.nanmean(reads_df[site_columns].values)
+    global_std = np.nanstd(reads_df[site_columns].values)
+    
+    # Compute z-scores using NumPy (element-wise)
+    z_scores = (reads_df[site_columns] - global_mean) / global_std
+    
+    # Fill NaNs (if any) with 0
+    z_scores = z_scores.fillna(0)
 
     # obtain top alignment for each site_pos group (e.g. site1_posA)
     top_scores_per_group = {}

@@ -4,9 +4,16 @@ from barcodezy import parser
 from barcodezy import preprocess
 from barcodezy import barcode_aligner
 from barcodezy import analysis
+from importlib.resources import files
 
 def main(args=None):
     args = parser.getArgs() # grab user arguments
+
+    if args.plasmid == 'a31': # (default option)
+        # set plasmid path to default a.31 plasmid
+        args.plasmid = str(files('barcodezy.plasmids').joinpath('a.31.fa'))
+        # set flanks path to default a.31 flanks
+        args.flanks = str(files('barcodezy.plasmids').joinpath('a.31_flanks.fa'))
     
     # inputs
     read_dir = os.path.normpath(args.input)
