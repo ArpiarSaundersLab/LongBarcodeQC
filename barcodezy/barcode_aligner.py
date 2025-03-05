@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import os
 from importlib.resources import files
+from tqdm import tqdm
 
 def barcode_scores(outpath: str, barcode_path: str, flanks_path, 
                    insert_len: int, enzymes, a31, SBARRO) -> None:
@@ -78,16 +79,13 @@ def barcode_scores(outpath: str, barcode_path: str, flanks_path,
     MCS_query = parasail.profile_create_16(MCS_flank, user_matrix)
 
     # iterate through reads and extract output stats
-    j=1000
-    for i,longread in enumerate(long_reads):
-        # progress counter per 1000 reads
-        if i % 1000 == 0 and i > 0:
-            print(f'{j} reads processed')
-            j+=1000
-
+    print('Processing target plasmid reads...')
+    for i,longread in enumerate(tqdm(long_reads, desc='Aligning barcodes (target plasmid)',
+                                     bar_format="{desc}: |{bar}| {percentage:3.0f}% ({n} reads)",
+                                     leave=False)):
         # avoid weird sequence objects possibly causing segmentation fault
-        if i > (len(long_reads) - 2):
-            #print('Warning: skipped empty parasail seq object')
+        if i > (len(long_reads) - 1):
+            # the final sequence object is empty for some reason
             continue
 
         read_id = longread.name.decode()
@@ -128,11 +126,13 @@ def barcode_scores(outpath: str, barcode_path: str, flanks_path,
         df_dict['read_type'].append('plasmid')
         df_dict['seq_len'].append(read_len)
         df_dict['seq_id'].append(read_id)
+    tqdm.write('Done\n')
 
     #### 
     # call a31 barcodes if user flags a31
     ####
     if a31:
+        print('Processing a.31 reads...')
         long_reads_a31 = parasail.sequences_from_file(f'{outpath}/{exp_name}.a31.aligned.fa.gz')
 
         a31_flanks_path = str(files('barcodezy.plasmids').joinpath('a.31_flanks.fa'))
@@ -146,16 +146,12 @@ def barcode_scores(outpath: str, barcode_path: str, flanks_path,
         user_matrix = parasail.matrix_create("ACGT", match=5, mismatch=-3)
         MCS_query = parasail.profile_create_16(MCS_flank, user_matrix)
 
-        for k,longread in enumerate(long_reads_a31):
-            # progress counter per 1000 reads
-            i+=1
-            if i % 1000 == 0 and i > 0:
-                print(f'{j} reads processed')
-                j+=1000
-
+        for k,longread in enumerate(tqdm(long_reads_a31, desc='Aligning barcodes (a31)',
+                                         bar_format="{desc}: |{bar}| {percentage:3.0f}% ({n} reads)",
+                                         leave=False)):
             # avoid weird sequence objects possibly causing segmentation fault
-            if k > (len(long_reads_a31) - 2):
-                #print('Warning: skipped empty parasail seq object')
+            if k > (len(long_reads_a31) - 1):
+                # again, the final sequence object is empty for some reason
                 continue
 
             read_id = longread.name.decode()
@@ -196,19 +192,15 @@ def barcode_scores(outpath: str, barcode_path: str, flanks_path,
             df_dict['seq_id'].append(read_id)
             # get restriction site booleans
             [df_dict[rs[0]].append(rs[1] in longread_doubled[MCS_start:MCS_end]) for rs in restriction_sites]
+    tqdm.write('Done\n')
     
     ### ecoli reads
+    print('Processing E. coli reads...')
     long_reads_ecoli = parasail.sequences_from_file(f'{outpath}/{exp_name}.ecoli.aligned.fa.gz') 
     for z,longread in enumerate(long_reads_ecoli):
-        # progress counter per 1000 reads
-        i+=1
-        if i % 1000 == 0 and i > 0:
-            print(f'{j} reads processed')
-            j+=1000
-
         # avoid weird sequence objects possibly causing segmentation fault
-        if z > (len(long_reads_ecoli) - 2):
-            #print('Warning: skipped empty parasail seq object')
+        if z > (len(long_reads_ecoli) - 1):
+            # again, the final sequence object is empty for some reason
             continue
 
         read_id = longread.name.decode()
@@ -224,8 +216,9 @@ def barcode_scores(outpath: str, barcode_path: str, flanks_path,
         df_dict['seq_id'].append(read_id)
         # get restriction site booleans
         [df_dict[rs[0]].append(np.nan) for rs in restriction_sites]
+    print('Done\n')
 
-    print(f'Finished read processing\nWriting csv output')
+    print(f'Finished read processing and barcode alignments\nGenerating outputs...')
 
     output_df = pd.DataFrame.from_dict(df_dict)
     return output_df

@@ -135,3 +135,6 @@ def validateArgs(args) -> None:
             print('Error: Upstream and downstream MCS flanking regions must be provided (fasta), '
                   'unless using default a.31 plasmid or SBARRO option.')
             sys.exit(1)
+    
+    # print user options
+    print('User command:\n', ' '.join(sys.argv), '\n', sep='')

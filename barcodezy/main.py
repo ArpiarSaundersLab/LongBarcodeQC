@@ -1,12 +1,17 @@
 #!/usr/bin/env python
 import os
+import sys
 from barcodezy import parser
 from barcodezy import preprocess
 from barcodezy import barcode_aligner
 from barcodezy import analysis
 from importlib.resources import files
+from datetime import datetime
 
 def main(args=None):
+    start = datetime.now()
+    print(f'\nStarting run...\n{start.strftime("%Y-%m-%d %H:%M:%S")}\n')
+
     args = parser.getArgs() # grab user arguments
     
     # inputs
@@ -26,20 +31,22 @@ def main(args=None):
         args.flanks = str(files('barcodezy.plasmids').joinpath('a.31_flanks.fa'))
 
     # remove any adaptor sequences (requires porechop), condense reads into a single file
+    print('Trimming reads with porechop...')
     trimmed_read_file = f'{output_dir}/{exp_name}_trimmed.fastq'
-    if not os.path.exists(trimmed_read_file):
-        cmd_str = (f'porechop -i {read_dir} -o {trimmed_read_file} ' 
-                   '--no_split --min_trim_size 25 '
-                   '--adapter_threshold 97 --check_reads 2000')
-        os.system(cmd_str)
-        preprocess.rename_reads(trimmed_read_file, exp_name)
+    cmd_str = (f'porechop -i {read_dir} -o {trimmed_read_file} ' 
+               '--no_split --min_trim_size 25 '
+               '--adapter_threshold 97 --check_reads 2000 '
+               f'&>{output_dir}/Log.txt')
+    os.system(cmd_str)
+    preprocess.rename_reads(trimmed_read_file, exp_name)
 
     # generate ref if SBARRO (also save ref_len for html plotting)
     if args.SBARRO:
         ref_len = preprocess.generate_ref(output_dir, args.insert_length)
     # else open ref fasta and concatenate to mimic circularity
     else:
-        ref_len = preprocess.process_ref(output_dir, args.plasmid)
+        ref_len = preprocess.process_ref(output_dir, args.plasmid, args.insert_length)
+    print(f'Preparing reference plasmid ({ref_len} bp)...')
 
     # map trimmed reads to plasmid with minimap2
     summary_align_counts = preprocess.mm2_align(output_dir, trimmed_read_file, args.a31)
@@ -55,6 +62,12 @@ def main(args=None):
     report = analysis.report_gen(output_dir, align, summary_align_counts, ref_len, args.zscore)
     # output compressed alignment csv with full set of BC scores and other metrics 
     report.to_csv(f'{output_dir}/{exp_name}_summary.csv.gz')
+
+    print(f'\nRun complete!')
+    end = datetime.now()
+    print(end.strftime("%Y-%m-%d %H:%M:%S"))
+    print(f'Time elapsed: {end - start}')
+
 
 if __name__ == "__main__":
     main()

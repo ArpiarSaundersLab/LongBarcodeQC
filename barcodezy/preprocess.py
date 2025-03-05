@@ -1,9 +1,9 @@
-import sys, os
+import os
 from importlib.resources import files
 from typing import Dict
 
 def rename_reads(raw_read_file, exp_name) -> None:
-    print(f'Writing file...')
+    print(f'Writing trimmed reads to single fastq...\n')
     with open(raw_read_file, 'r') as reads:
         tmp_rewrite_file = f'{raw_read_file[0:-5]}_renamed.fastq'
         with open(tmp_rewrite_file, 'w') as out:
@@ -22,7 +22,6 @@ def rename_reads(raw_read_file, exp_name) -> None:
                 if i % 4 == 3:
                     qual = line.strip()
                     out.write(f'{qual}\n')
-
     os.replace(tmp_rewrite_file, raw_read_file)
 
 def generate_ref(outpath, insert_len):
@@ -42,7 +41,7 @@ def generate_ref(outpath, insert_len):
     # return ref length for downstream use in output plots
     return len(upstream_MCS + 'N'*insert_len + downstream_MCS)
 
-def process_ref(outpath, plasmid_path):
+def process_ref(outpath, plasmid_path, insert_len):
     # to hold full ref sequence before concatenation
     exp_name = os.path.basename(outpath)
     full_seq = ''
@@ -58,7 +57,7 @@ def process_ref(outpath, plasmid_path):
             full_seq_concat = 2 * full_seq
             out.write(full_seq_concat.strip())
     # return ref length for downstream use in output plots
-    return len(full_seq)
+    return len(full_seq) + insert_len
 
 def mm2_align(outpath, trimmed_reads_path, a31) -> Dict[str, int]:
     exp_name = os.path.basename(outpath)
@@ -91,16 +90,16 @@ def mm2_align(outpath, trimmed_reads_path, a31) -> Dict[str, int]:
         ref_name = str(fh.readline().strip().split(' ')[0][1:])
     if not os.path.exists(output_fa_unaligned):
         # align reads with mm2, convert to bam output
-        print(f'\nAligning {exp_name} with minimap2')
+        print(f'Aligning {exp_name} using minimap2...')
         os.system(f'minimap2 -ax map-ont {outpath}/.tmp.ref.fa {trimmed_reads_path} \
-        --secondary=no -t 3 | samtools view -b -h -@ 2 >{output_bam_file}')
+                  --secondary=no -t 3 2>>{outpath}/Log.txt | samtools view -b -h -@ 2 >{output_bam_file}')
         # sort and index bam
-        os.system(f'samtools sort {output_bam_file} >{output_sorted_bam_file}')
+        os.system(f'samtools sort {output_bam_file} >{output_sorted_bam_file} 2>>{outpath}/Log.txt')
         os.system(f'samtools index {output_sorted_bam_file}')
         # rm tmp files
         os.system(f'rm {output_bam_file} && rm {outpath}/.tmp.ref.fa && rm {plasmid_path}')
 
-        print(f'\nAlignment finished. Flipping reverse reads and writing fasta outputs')
+        print(f'Alignment finished. Flipping reverse reads and writing fasta outputs')
 
         # write positive strand alignments to fasta (only reads aligned to reference name)
         # SAM flags used:
@@ -108,29 +107,30 @@ def mm2_align(outpath, trimmed_reads_path, a31) -> Dict[str, int]:
         ## 4:    unmapped
         ## 16:   reverse strand
         os.system(f'samtools view -F 2048 -F 4 -F 16 -h {output_sorted_bam_file} \'{ref_name}\' | \
-                  samtools fasta - > {output_fa_aligned}')
+                  samtools fasta - >{output_fa_aligned} 2>>{outpath}/Log.txt')
         # reverse complement negative strand alignments and append to same file
-        os.system(f'samtools view -F 2048 -f 16 -h {output_sorted_bam_file} \'{ref_name}\' | samtools fasta - | \
-                  {rev_complement_cmd} >> {output_fa_aligned}')
+        os.system(f'samtools view -F 2048 -f 16 -h {output_sorted_bam_file} \'{ref_name}\' | \
+                  samtools fasta - 2>>{outpath}/Log.txt | {rev_complement_cmd} >>{output_fa_aligned}')
         os.system(f'gzip {output_fa_aligned}') # compress into .fa.gz
 
         # write a.31 reads to file if a31 flag on:
         if a31:
             os.system(f'samtools view -F 2048 -F 4 -F 16 -h {output_sorted_bam_file} \'{a31_ref_string}\' | \
-                      samtools fasta - > {output_a31_aligned}')
+                      samtools fasta - >{output_a31_aligned} 2>>{outpath}/Log.txt')
             # reverse complement negative strand alignments and append to same file
-            os.system(f'samtools view -F 2048 -f 16 -h {output_sorted_bam_file} \'{a31_ref_string}\' | samtools fasta - | \
-                      {rev_complement_cmd} >> {output_a31_aligned}')
+            os.system(f'samtools view -F 2048 -f 16 -h {output_sorted_bam_file} \'{a31_ref_string}\' | \
+                      samtools fasta - 2>>{outpath}/Log.txt | {rev_complement_cmd} >>{output_a31_aligned}')
             os.system(f'gzip {output_a31_aligned}') # compress into .fa.gz
 
         # write unaligned reads to file
-        os.system(f'samtools view -f 4 -h {output_sorted_bam_file} | samtools fasta - | gzip > {output_fa_unaligned}')
+        os.system(f'samtools view -f 4 -h {output_sorted_bam_file} | samtools fasta - 2>>{outpath}/Log.txt | \
+                  gzip >{output_fa_unaligned}')
 
         # write e coli reads to file
         os.system(f'samtools view -H {output_sorted_bam_file} >{outpath}/.tmp.ecoli.sam')
         os.system(f'samtools view -F 4 -F 2048 {output_sorted_bam_file} | \
                     awk \'$3 ~ /{ecoli_ref_string}/\' >>{outpath}/.tmp.ecoli.sam')
-        os.system(f'samtools fasta {outpath}/.tmp.ecoli.sam >{ecoli_fa_aligned}')
+        os.system(f'samtools fasta {outpath}/.tmp.ecoli.sam >{ecoli_fa_aligned} 2>>{outpath}/Log.txt')
         os.system(f'gzip {ecoli_fa_aligned} && rm {outpath}/.tmp.ecoli.sam')
 
         
