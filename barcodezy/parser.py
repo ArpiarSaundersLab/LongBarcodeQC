@@ -57,6 +57,15 @@ def getArgs():
                         'NNN sequence inserted into the MCS (length of NNNs equal to '
                         'provided insert length).',
                         action='store_true')
+    parser.add_argument('-z', '--zscore',
+                        help='Optionally set z-score threshold for barcode calling. The '
+                        'default threshold is set by using the z-score for the worst '
+                        'performing barcode alignment in the library (absolute value). '
+                        'Sometimes this value is either too conservative or too permissive. '
+                        'See the z-score distribution in the html output summary to evaluate this. '
+                        'If desired - use this option to manually set the z-score threshold to be a '
+                        'fixed value (e.g. 2.5).',
+                        type=float)
     return parser.parse_args()
 
 def validateArgs(args) -> None:

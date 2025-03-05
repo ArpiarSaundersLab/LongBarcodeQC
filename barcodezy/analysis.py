@@ -2,13 +2,12 @@ import os
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
-from jinja2 import Environment, PackageLoader, select_autoescape
-import base64
+from jinja2 import Environment, PackageLoader
 from io import StringIO
 import math
 import numpy as np
 
-def z_score_barcode_calling(reads_df, z_thresh=5.5):
+def z_score_barcode_calling(reads_df, z_thresh):
     error_msg = ('Could not parse barcode names. Naming scheme must be "siteX_posY_Z."\n'
                  'X: site number, Y: = position, Z:  barcode #\n'
                  'e.g. site2_posB_127')
@@ -37,6 +36,34 @@ def z_score_barcode_calling(reads_df, z_thresh=5.5):
     # Fill NaNs (if any) with 0
     z_scores = z_scores.fillna(0)
 
+    # Use minimum z-score as threshold for calling insertions if not provided
+    if z_thresh is None:
+        z_thresh = abs(min(z_scores[reads_df.read_type == 'plasmid'].values.flatten()))
+
+    # z-score distribution plots (linear and log scaled)
+    fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(10, 4))
+    axes[0].hist(z_scores[reads_df.read_type == 'plasmid'].values.flatten(), bins=35)
+    axes[0].set_xlabel('z-score')
+    axes[0].set_title('z-score distribution (linear)')
+    axes[0].axvline(z_thresh, color='red', linestyle='--', 
+                    label='z-score threshold\nfor calling barcodes')
+    axes[0].legend()
+
+    axes[1].hist(z_scores[reads_df.read_type == 'plasmid'].values.flatten(), bins=35)
+    axes[1].set_xlabel('z-score')
+    axes[1].set_title('z-score distribution (log scale)')
+    axes[1].set_yscale('log')
+    axes[1].axvline(z_thresh, color='red', linestyle='--', 
+                    label='z-score threshold\nfor calling barcodes')
+    axes[1].legend()
+
+    plt.tight_layout()
+    # save encoded plot
+    svg_io = StringIO()
+    plt.savefig(svg_io, format='svg', bbox_inches='tight')
+    svg_content = svg_io.getvalue()
+    svg_io.close()
+
     # obtain top alignment for each site_pos group (e.g. site1_posA)
     top_scores_per_group = {}
     for group in site_pos_groups:
@@ -52,7 +79,7 @@ def z_score_barcode_calling(reads_df, z_thresh=5.5):
 
     # add z_score barcode calls to main df
     summary_df = pd.concat([reads_df.drop(site_columns, axis=1), barcode_calls], axis=1)
-    return summary_df
+    return summary_df, svg_content
 
 
 def read_length_hist(summary_df, hue_group_col: str, max_len: int, title: str):
@@ -89,7 +116,8 @@ def read_length_hist(summary_df, hue_group_col: str, max_len: int, title: str):
 
     return svg_content
 
-def report_gen(outpath: str, reads_df, alignment_counts: str, ref_len: int):
+def report_gen(outpath: str, reads_df, alignment_counts: str, 
+               ref_len: int, z_thresh):
     experiment_name = os.path.basename(outpath)
 
     ## alignment summary counts
@@ -104,7 +132,7 @@ def report_gen(outpath: str, reads_df, alignment_counts: str, ref_len: int):
     ## scoring table processing
     reads = reads_df.set_index('seq_id')
     # summary table output
-    summary = z_score_barcode_calling(reads)
+    summary, z_plot = z_score_barcode_calling(reads, z_thresh)
 
     # get upper x lim for read length histograms
     max_len = math.ceil(ref_len / 1000) * 1000
@@ -155,7 +183,8 @@ def report_gen(outpath: str, reads_df, alignment_counts: str, ref_len: int):
      'insertions': insertion_hist,
      'rs_plots': rs_plots,
      'headers_enz': enz_df.columns.tolist(),
-     'data_enz': enz_df.values.tolist()
+     'data_enz': enz_df.values.tolist(),
+     'z_plot': z_plot
     }
 
     html_report = template.render(context)

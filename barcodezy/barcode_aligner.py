@@ -54,7 +54,6 @@ def barcode_scores(outpath: str, barcode_path: str, flanks_path,
                              'Recommended that each flank be ~75 bp.')
         MCS_left_flank = str(flanks[0].seq.decode())
         MCS_right_flank = str(flanks[1].seq.decode())
-        print(f'number of flank seqs detected: {len(flanks)}')
         # insert N sequence of expected insert length between flanks
         MCS_flank = MCS_left_flank + 'N'*insert_len + MCS_right_flank  
 

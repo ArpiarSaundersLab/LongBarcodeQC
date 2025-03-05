@@ -106,6 +106,22 @@
                 </div>
             </div>
         </section>
+
+        <section class="mt-4">
+            <h2>Z-score distribution and threshold for<br>calling barcodes</h2>
+            <div class="container">
+                <div class="svg-container">
+                    {{ z_plot }}
+                </div>
+                <p>If the threshold is set too low (too far left within the 
+                    background alignment z-scores), there will likely be false positive barcode calls. 
+                    If the threshold is set too high, some true barcodes may be missed. The default value 
+                    is set based on the absolute value of the lowest background z-score. You may choose a more 
+                    appropriate threshold based on the distribution of z-scores for your data using the -z option.
+                </p>
+            </div>
+        </section>
+
         <section class="mt-4">
             <h2>Restriction sites</h2>
             <div class="table-responsive">
