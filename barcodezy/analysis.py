@@ -182,6 +182,7 @@ def report_gen(outpath: str, reads_df, alignment_counts: str,
      'read_type': read_type_hist,
      'insertions': insertion_hist,
      'rs_plots': rs_plots,
+     'rs_plot_names': enz_df['Restriction site'].tolist(),
      'headers_enz': enz_df.columns.tolist(),
      'data_enz': enz_df.values.tolist(),
      'z_plot': z_plot

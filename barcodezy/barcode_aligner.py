@@ -192,7 +192,7 @@ def barcode_scores(outpath: str, barcode_path: str, flanks_path,
             df_dict['seq_id'].append(read_id)
             # get restriction site booleans
             [df_dict[rs[0]].append(rs[1] in longread_doubled[MCS_start:MCS_end]) for rs in restriction_sites]
-    tqdm.write('Done\n')
+        tqdm.write('Done\n')
     
     ### ecoli reads
     print('Processing E. coli reads...')
