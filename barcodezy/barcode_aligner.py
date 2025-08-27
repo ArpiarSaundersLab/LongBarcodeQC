@@ -64,7 +64,8 @@ def barcode_scores(outpath: str, barcode_path: str, flanks_path,
         'seq_len': [],
         'read_type': [],
         'MCS_score': [],
-        'MCS_len': []
+        'MCS_len': [],
+        'MCS_seq': []
     }
 
     # initialize output lists for each restriction site in df_dict
@@ -75,7 +76,9 @@ def barcode_scores(outpath: str, barcode_path: str, flanks_path,
         df_dict[bc[0]] = []
 
     #custom align matrix
-    user_matrix = parasail.matrix_create("ACGT", match=5, mismatch=-3)
+    user_matrix = parasail.matrix_create("ACGT", match=2, mismatch=-1)
+    gap_open = 5
+    gap_extend = 2
     MCS_query = parasail.profile_create_16(MCS_flank, user_matrix)
 
     # iterate through reads and extract output stats
@@ -94,7 +97,8 @@ def barcode_scores(outpath: str, barcode_path: str, flanks_path,
         # anchoring alignment; double the sequence to mimic linear sequence
         longread_doubled = longread.seq.decode() * 2
 
-        align_MCS = parasail.sg_dx_striped_profile_16(MCS_query, longread_doubled, 5, 1)
+        align_MCS = parasail.sg_striped_profile_16(MCS_query, longread_doubled, 
+                                                   gap_open, gap_extend)
 
         MCS_start = align_MCS.end_ref - len(MCS_flank)
         MCS_end = align_MCS.end_ref
@@ -110,12 +114,14 @@ def barcode_scores(outpath: str, barcode_path: str, flanks_path,
             df_dict['seq_id'].append(read_id)
             [df_dict[bc[0]].append(np.nan) for bc in bc_name_seq]
             [df_dict[rs[0]].append(rs[1] in longread.seq.decode()) for rs in restriction_sites]
+            df_dict['MCS_seq'].append(longread_doubled[MCS_start:MCS_end])
             continue
 
         # get barcode scores
         bc_query = parasail.profile_create_16(longread_doubled[MCS_start:MCS_end], user_matrix)
         for bc in bc_name_seq:
-            bc_align = parasail.sg_qx_striped_profile_16(bc_query, bc[1], 5, 1)
+            bc_align = parasail.sg_striped_profile_16(bc_query, bc[1], 
+                                                      gap_open, gap_extend)
             df_dict[bc[0]].append(bc_align.score)
 
         # append df values
@@ -126,6 +132,7 @@ def barcode_scores(outpath: str, barcode_path: str, flanks_path,
         df_dict['read_type'].append('plasmid')
         df_dict['seq_len'].append(read_len)
         df_dict['seq_id'].append(read_id)
+        df_dict['MCS_seq'].append(longread_doubled[MCS_start:MCS_end])
     tqdm.write('Done\n')
 
     #### 
@@ -143,7 +150,6 @@ def barcode_scores(outpath: str, barcode_path: str, flanks_path,
         MCS_flank = MCS_left_flank + 'N'*insert_len + MCS_right_flank
             
         #custom align matrix
-        user_matrix = parasail.matrix_create("ACGT", match=5, mismatch=-3)
         MCS_query = parasail.profile_create_16(MCS_flank, user_matrix)
 
         for k,longread in enumerate(tqdm(long_reads_a31, desc='Aligning barcodes (a31)',
@@ -160,12 +166,15 @@ def barcode_scores(outpath: str, barcode_path: str, flanks_path,
             # double the sequence to mimic linear sequence
             longread_doubled = longread.seq.decode() * 2
 
-            align_MCS = parasail.sg_dx_striped_profile_16(MCS_query, longread_doubled, 5, 1)
+            align_MCS = parasail.sg_striped_profile_16(MCS_query, longread_doubled,
+                                                       gap_open, gap_extend)
 
             MCS_start = align_MCS.end_ref - len(MCS_flank)
             MCS_end = align_MCS.end_ref
             MCS_score = align_MCS.score
             MCS_len = len(longread_doubled[MCS_start:MCS_end])
+
+            df_dict['MCS_seq'].append(np.nan)
         
             # catch reads where MCS flank isn't fully covered
             if (MCS_len < len(MCS_flank)):
@@ -181,7 +190,8 @@ def barcode_scores(outpath: str, barcode_path: str, flanks_path,
             # get barcode scores
             bc_query = parasail.profile_create_16(longread_doubled[MCS_start:MCS_end], user_matrix)
             for bc in bc_name_seq:
-                bc_align = parasail.sg_qx_striped_profile_16(bc_query, bc[1], 5, 1)
+                bc_align = parasail.sg_striped_profile_16(bc_query, bc[1], 
+                                                          gap_open, gap_extend)
                 df_dict[bc[0]].append(bc_align.score)
 
             # append df values
@@ -216,6 +226,7 @@ def barcode_scores(outpath: str, barcode_path: str, flanks_path,
         df_dict['seq_id'].append(read_id)
         # get restriction site booleans
         [df_dict[rs[0]].append(np.nan) for rs in restriction_sites]
+        df_dict['MCS_seq'].append(np.nan)
     print('Done\n')
 
     print(f'Finished read processing and barcode alignments\nGenerating outputs...')
