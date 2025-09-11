@@ -1,14 +1,15 @@
 #!/usr/bin/env python
 import os
-import sys
+from datetime import datetime
+from importlib.resources import files
+from barcodezy import analysis
+from barcodezy import barcode_aligner
 from barcodezy import parser
 from barcodezy import preprocess
-from barcodezy import barcode_aligner
-from barcodezy import analysis
-from importlib.resources import files
-from datetime import datetime
+
 
 def main(args=None):
+    """Entry point for the barcodezy CLI workflow."""
     start = datetime.now()
     print(f'\nStarting run...\n{start.strftime("%Y-%m-%d %H:%M:%S")}\n')
 
@@ -59,9 +60,15 @@ def main(args=None):
     align.to_csv(f'{output_dir}/{exp_name}.csv.gz', index=False)
 
     # analysis html and processing of alignment table (z-scores, top BC call, etc) 
-    report = analysis.report_gen(output_dir, align, summary_align_counts, 
-                                 ref_len, args.zscore, args.expected_insertions)
-    # output compressed alignment csv with full set of BC scores and other metrics 
+    report = analysis.report_gen(
+        output_dir,
+        align,
+        summary_align_counts,
+        ref_len,
+        args.zscore,
+        args.expected_insertions,
+    )
+    # output compressed alignment csv with full set of BC scores and other metrics
     report.to_csv(f'{output_dir}/{exp_name}_summary.csv.gz')
 
     print(f'\nRun complete!')

@@ -1,21 +1,28 @@
 import argparse
-import sys, os
+import sys
+import os
 
-def getArgs():
-    parser = argparse.ArgumentParser()
+def getArgs() -> argparse.Namespace:
+    """Parse and return command-line arguments for barcodezy.
+
+    Returns an argparse.Namespace with validated CLI options.
+    """
+    arg_parser = argparse.ArgumentParser(
+        description="Analyze long-read barcodes and generate a summary report"
+    )
     # arg options
-    parser.add_argument('-i', '--input',
+    arg_parser.add_argument('-i', '--input',
                         help='Path to input fastq files '
                         '(nanopore fastq_pass folder). ',
                         type=str,
                         required=True)
-    parser.add_argument('-o', '--output',
+    arg_parser.add_argument('-o', '--output',
                         help='Path to output directory. '
                         'An output folder will be created if it does not '
                         'exist. Program will exit if files already exist here.',
                         type=str,
                         required=True)
-    parser.add_argument('-p', '--plasmid',
+    arg_parser.add_argument('-p', '--plasmid',
                         help='Path to plasmid fasta file. '
                         'The default plasmid is a.31. If using another '
                         'plasmid, use this option with the path to a fasta '
@@ -24,40 +31,40 @@ def getArgs():
                         'to optimize alignment.',
                         type=str,
                         default='a31')
-    parser.add_argument('-b', '--barcodes',
+    arg_parser.add_argument('-b', '--barcodes',
                         help='Path to barcode fasta file. '
                         'One barcode per line. Fasta headers must be '
                         'unique names.',
                         type=str,
                         required=True)
-    parser.add_argument('-l', '--insert_length',
+    arg_parser.add_argument('-l', '--insert_length',
                         help='Integer length of expected insert size cloned into MCS. '
                         'A rough estimate is sufficient. Default: 300 bp',
                         type=int,
                         default=300)
-    parser.add_argument('-f', '--flanks',
+    arg_parser.add_argument('-f', '--flanks',
                         help='Path to fasta file containing MCS flanking regions. '
                         'The first sequence must be the upstream flank, and the second '
                         'sequence must be the downstream flank. '
                         'Must be provided in the same file.',
                         type=str)
-    parser.add_argument('-r', '--enzymes',
+    arg_parser.add_argument('-r', '--enzymes',
                         help='Path to text file with restriction site names and their '
                         'sequences. Define one site per line, with the name and sequence '
                         'separated by comma.',
                         type=str)
-    parser.add_argument('-a', '--a31',
+    arg_parser.add_argument('-a', '--a31',
                         help='Option to add a31 alignment. Mainly used '
                         'to detect contamination from a31 plasmid. This will flag a31 reads '
                         'in the final output and score barcodes against them.',
                         action='store_true')
-    parser.add_argument('-S', '--SBARRO',
+    arg_parser.add_argument('-S', '--SBARRO',
                         help='Use this option if the plasmid is part of the SBARRO system '
                         '(derived from c.18). Reference will be generated with '
                         'NNN sequence inserted into the MCS (length of NNNs equal to '
                         'provided insert length).',
                         action='store_true')
-    parser.add_argument('-z', '--zscore',
+    arg_parser.add_argument('-z', '--zscore',
                         help='Optionally set z-score threshold for barcode calling. The '
                         'default threshold is set by using the z-score for the worst '
                         'performing barcode alignment in the library (absolute value). '
@@ -66,15 +73,21 @@ def getArgs():
                         'If desired - use this option to manually set the z-score threshold to be a '
                         'fixed value (e.g. 2.5).',
                         type=float)
-    parser.add_argument('-N', '--expected_insertions',
+    arg_parser.add_argument('-N', '--expected_insertions',
                         help='Optionally set the expected number of insertions in a library. '
                         'This is used in the html report to categorize reads in the read length histogram. '
                         'By default, this is set to the maximum number of sites/positions found '
                         'in the dataset.',
                         type=int)
-    return parser.parse_args()
+    return arg_parser.parse_args()
 
-def validateArgs(args) -> None:
+def validateArgs(args: argparse.Namespace) -> None:
+    """Validate arguments and filesystem state.
+
+    - Ensures input/output paths exist in expected forms
+    - Validates combinations of `--plasmid`, `--a31`, and `--SBARRO`
+    - Checks barcode and restriction enzyme files if provided
+    """
     input_path = os.path.normpath(args.input)
     output_path = os.path.normpath(args.output)
     plasmid_path = args.plasmid
@@ -121,16 +134,16 @@ def validateArgs(args) -> None:
             print(f'Error: Restriction enzyme file does not exist: {rs_path}')
             sys.exit(1)
         with open(rs_path, 'r') as fh:
-            for rs in fh:
-                rs = rs.strip().split(',') 
-                if len(rs) != 2: # check if each line has 2 elements (name, seq)
+            for line in fh:
+                parts = line.strip().split(',')
+                if len(parts) != 2: # check if each line has 2 elements (name, seq)
                     print('Error: Restriction enzyme file must contain one name and sequence '
                           'per line, separated by a comma.')
                     sys.exit(1)
 
-                seq = rs.strip().split(',')[1]
-                # very seq is only ACTG
-                if not all(c in {'A', 'C', 'T', 'G'} for c in seq):
+                seq = parts[1]
+                # verify seq is only ACTG
+                if not all(c in {'A', 'C', 'T', 'G'} for c in seq.upper()):
                     print('Error: Provided restriction enzyme sequences must only contain [ACTG]')
                     sys.exit(1)
     

@@ -1,13 +1,19 @@
 import os
+import math
+from io import StringIO
+from typing import Dict, Tuple
+
+import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import seaborn as sns
-import matplotlib.pyplot as plt
 from jinja2 import Environment, PackageLoader
-from io import StringIO
-import math
-import numpy as np
 
-def z_score_barcode_calling(reads_df, z_thresh):
+def z_score_barcode_calling(reads_df: pd.DataFrame, z_thresh: float | None) -> Tuple[pd.DataFrame, str]:
+    """Compute per-read barcode z-scores and top calls.
+
+    Returns (summary_df, svg_plot_str).
+    """
     error_msg = ('Could not parse barcode names. Naming scheme must be "siteX_posY_Z."\n'
                  'X: site number, Y: = position, Z:  barcode #\n'
                  'e.g. site2_posB_127')
@@ -63,6 +69,7 @@ def z_score_barcode_calling(reads_df, z_thresh):
     plt.savefig(svg_io, format='svg', bbox_inches='tight')
     svg_content = svg_io.getvalue()
     svg_io.close()
+    plt.close(fig)
 
     # obtain top alignment for each site_pos group (e.g. site1_posA)
     top_scores_per_group = {}
@@ -82,7 +89,14 @@ def z_score_barcode_calling(reads_df, z_thresh):
     return summary_df, svg_content
 
 
-def read_length_hist(summary_df, hue_group_col: str, max_len: int, title: str, expected_insertions):
+def read_length_hist(
+    summary_df: pd.DataFrame,
+    hue_group_col: str,
+    max_len: int,
+    title: str,
+    expected_insertions: int | None,
+) -> str:
+    """Generate a read length histogram and return it as an SVG string."""
     df_nofailed = summary_df[
         (summary_df.read_type != 'plasmid_failed_anchor') &
         (summary_df.read_type != 'a31_failed_anchor')
@@ -104,24 +118,40 @@ def read_length_hist(summary_df, hue_group_col: str, max_len: int, title: str, e
     elif 'RE_' in hue_group_col:
         df_nofailed = df_nofailed[df_nofailed.read_type != 'ecoli']
 
-    plt.figure(figsize=(12, 7))
-    sns.histplot(data=df_nofailed[df_nofailed.seq_len < max_len], x='seq_len', 
-                 hue=hue_group_col, bins=60, alpha=0.5, palette='Set2', element='step')
+    fig = plt.figure(figsize=(12, 7))
+    sns.histplot(
+        data=df_nofailed[df_nofailed.seq_len < max_len],
+        x='seq_len',
+        hue=hue_group_col,
+        bins=60,
+        alpha=0.5,
+        palette='Set2',
+        element='step',
+    )
     sns.despine()
     plt.grid(visible=True, which='major', linestyle='--', alpha=0.4)
     plt.xlim(0, max_len)
     plt.xlabel('Read length (bp)')
     plt.title(title)
-    plt.gca().get_legend().set_title('')
+    legend = plt.gca().get_legend()
+    if legend is not None:
+        legend.set_title('')
     # save encoded plot
     svg_io = StringIO()
     plt.savefig(svg_io, format='svg', bbox_inches='tight')
     svg_content = svg_io.getvalue()
     svg_io.close()
+    plt.close(fig)
 
     return svg_content
 
-def MCS_length_hist(summary_df, hue_group_col: str, title: str, expected_insertions):
+def MCS_length_hist(
+    summary_df: pd.DataFrame,
+    hue_group_col: str,
+    title: str,
+    expected_insertions: int | None,
+) -> str:
+    """Generate an MCS cassette length histogram and return it as an SVG string."""
     df_nofailed = summary_df[
         (summary_df.read_type != 'plasmid_failed_anchor') &
         (summary_df.read_type != 'a31_failed_anchor') &
@@ -141,25 +171,42 @@ def MCS_length_hist(summary_df, hue_group_col: str, title: str, expected_inserti
             df_nofailed['ins_group'] = df_nofailed.ins_group.replace({f'0-{num_pos-1}': '0'})
         hue_group_col = 'ins_group'
 
-    plt.figure(figsize=(12, 7))
-    sns.histplot(data=df_nofailed[df_nofailed.MCS_len < 2*np.mean(df_nofailed.MCS_len)], x='MCS_len', 
-                 hue=hue_group_col, bins=60, alpha=0.5, palette='Set2', element='step')
+    fig = plt.figure(figsize=(12, 7))
+    sns.histplot(
+        data=df_nofailed[df_nofailed.MCS_len < 2*np.mean(df_nofailed.MCS_len)],
+        x='MCS_len',
+        hue=hue_group_col,
+        bins=60,
+        alpha=0.5,
+        palette='Set2',
+        element='step',
+    )
     sns.despine()
     plt.grid(visible=True, which='major', linestyle='--', alpha=0.4)
     plt.xlim(0, 2*np.mean(df_nofailed.MCS_len))
     plt.xlabel('MCS cassette length (bp)')
     plt.title(title)
-    plt.gca().get_legend().set_title('')
+    legend = plt.gca().get_legend()
+    if legend is not None:
+        legend.set_title('')
     # save encoded plot
     svg_io = StringIO()
     plt.savefig(svg_io, format='svg', bbox_inches='tight')
     svg_content = svg_io.getvalue()
     svg_io.close()
+    plt.close(fig)
 
     return svg_content
 
-def report_gen(outpath: str, reads_df, alignment_counts: str, 
-               ref_len: int, z_thresh, expected_insertions):
+def report_gen(
+    outpath: str,
+    reads_df: pd.DataFrame,
+    alignment_counts: Dict[str, int],
+    ref_len: int,
+    z_thresh: float | None,
+    expected_insertions: int | None,
+) -> pd.DataFrame:
+    """Generate plots and HTML report, returning the summary DataFrame."""
     experiment_name = os.path.basename(outpath)
 
     ## alignment summary counts

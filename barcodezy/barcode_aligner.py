@@ -1,12 +1,26 @@
-import parasail
-import pandas as pd
-import numpy as np
+from typing import Optional
+
 import os
+
+import numpy as np
+import pandas as pd
+import parasail
 from importlib.resources import files
 from tqdm import tqdm
 
-def barcode_scores(outpath: str, barcode_path: str, flanks_path, 
-                   insert_len: int, enzymes, a31, SBARRO) -> None:
+def barcode_scores(
+    outpath: str,
+    barcode_path: str,
+    flanks_path: Optional[str],
+    insert_len: int,
+    enzymes: Optional[str],
+    a31: bool,
+    SBARRO: bool,
+) -> pd.DataFrame:
+    """Compute barcode alignment scores and read statistics.
+
+    Returns a DataFrame with one row per read and columns for scores/metadata.
+    """
     exp_name = os.path.basename(outpath)
     # loading reads from the experiment
     long_reads = parasail.sequences_from_file(f'{outpath}/{exp_name}.aligned.fa.gz')
@@ -34,7 +48,7 @@ def barcode_scores(outpath: str, barcode_path: str, flanks_path,
             for rs in fh:
                 name = str(rs.strip().split(',')[0])
                 seq = str(rs.strip().split(',')[1])
-                restriction_sites.append((f'RE_{name}',seq))
+                restriction_sites.append((f'RE_{name}', seq))
 
     # build common MCS flanking region to anchor to the barcode region for a more precise alignment
     # These flanking regions are common for all c.18 derivatives. Add NNN sequence of user specified
@@ -85,9 +99,12 @@ def barcode_scores(outpath: str, barcode_path: str, flanks_path,
 
     # iterate through reads and extract output stats
     print('Processing target plasmid reads...')
-    for i,longread in enumerate(tqdm(long_reads, desc='Aligning barcodes (target plasmid)',
-                                     bar_format="{desc}: |{bar}| {percentage:3.0f}% ({n} reads)",
-                                     leave=False)):
+    for i, longread in enumerate(tqdm(
+        long_reads,
+        desc='Aligning barcodes (target plasmid)',
+        bar_format="{desc}: |{bar}| {percentage:3.0f}% ({n} reads)",
+        leave=False,
+    )):
         # avoid weird sequence objects possibly causing segmentation fault
         if i > (len(long_reads) - 1):
             # the final sequence object is empty for some reason
@@ -147,7 +164,8 @@ def barcode_scores(outpath: str, barcode_path: str, flanks_path,
         df_dict['right_anchor_score'].append(right_anchor_score)
         df_dict['MCS_len'].append(MCS_len)
         # get restriction site booleans
-        [df_dict[rs[0]].append(rs[1] in longread_doubled[MCS_start:MCS_end]) for rs in restriction_sites]
+        for rs_name, rs_seq in restriction_sites:
+            df_dict[rs_name].append(rs_seq in longread_doubled[MCS_start:MCS_end])
         df_dict['read_type'].append('plasmid')
         df_dict['seq_len'].append(read_len)
         df_dict['seq_id'].append(read_id)
@@ -172,9 +190,12 @@ def barcode_scores(outpath: str, barcode_path: str, flanks_path,
         MCS_query_left = parasail.profile_create_16(MCS_left_flank, user_matrix)
         MCS_query_right = parasail.profile_create_16(MCS_right_flank, user_matrix)
 
-        for k,longread in enumerate(tqdm(long_reads_a31, desc='Aligning barcodes (a31)',
-                                         bar_format="{desc}: |{bar}| {percentage:3.0f}% ({n} reads)",
-                                         leave=False)):
+        for k, longread in enumerate(tqdm(
+            long_reads_a31,
+            desc='Aligning barcodes (a31)',
+            bar_format="{desc}: |{bar}| {percentage:3.0f}% ({n} reads)",
+            leave=False,
+        )):
             # avoid weird sequence objects possibly causing segmentation fault
             if k > (len(long_reads_a31) - 1):
                 # again, the final sequence object is empty for some reason
@@ -238,13 +259,14 @@ def barcode_scores(outpath: str, barcode_path: str, flanks_path,
             df_dict['MCS_seq'].append(longread_doubled[MCS_start:MCS_end])
             df_dict['seq_id'].append(read_id)
             # get restriction site booleans
-            [df_dict[rs[0]].append(rs[1] in longread_doubled[MCS_start:MCS_end]) for rs in restriction_sites]
+            for rs_name, rs_seq in restriction_sites:
+                df_dict[rs_name].append(rs_seq in longread_doubled[MCS_start:MCS_end])
         tqdm.write('Done\n')
     
     ### ecoli reads
     print('Processing E. coli reads...')
     long_reads_ecoli = parasail.sequences_from_file(f'{outpath}/{exp_name}.ecoli.aligned.fa.gz') 
-    for z,longread in enumerate(long_reads_ecoli):
+    for z, longread in enumerate(long_reads_ecoli):
         # avoid weird sequence objects possibly causing segmentation fault
         if z > (len(long_reads_ecoli) - 1):
             # again, the final sequence object is empty for some reason
@@ -264,7 +286,8 @@ def barcode_scores(outpath: str, barcode_path: str, flanks_path,
         df_dict['MCS_seq'].append(np.nan)
         df_dict['seq_id'].append(read_id)
         # get restriction site booleans
-        [df_dict[rs[0]].append(np.nan) for rs in restriction_sites]
+        for rs_name, _ in restriction_sites:
+            df_dict[rs_name].append(np.nan)
     print('Done\n')
 
     print(f'Finished read processing and barcode alignments\nGenerating outputs...')
