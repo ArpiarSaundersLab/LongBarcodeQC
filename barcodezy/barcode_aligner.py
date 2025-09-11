@@ -63,7 +63,8 @@ def barcode_scores(outpath: str, barcode_path: str, flanks_path,
         'seq_id': [],
         'seq_len': [],
         'read_type': [],
-        'MCS_score': [],
+        'left_anchor_score': [],
+        'right_anchor_score': [],
         'MCS_len': [],
         'MCS_seq': []
     }
@@ -79,7 +80,8 @@ def barcode_scores(outpath: str, barcode_path: str, flanks_path,
     user_matrix = parasail.matrix_create("ACGT", match=2, mismatch=-1)
     gap_open = 5
     gap_extend = 2
-    MCS_query = parasail.profile_create_16(MCS_flank, user_matrix)
+    MCS_query_left = parasail.profile_create_16(MCS_left_flank, user_matrix)
+    MCS_query_right = parasail.profile_create_16(MCS_right_flank, user_matrix)
 
     # iterate through reads and extract output stats
     print('Processing target plasmid reads...')
@@ -97,24 +99,40 @@ def barcode_scores(outpath: str, barcode_path: str, flanks_path,
         # anchoring alignment; double the sequence to mimic linear sequence
         longread_doubled = longread.seq.decode() * 2
 
-        align_MCS = parasail.sg_striped_profile_16(MCS_query, longread_doubled, 
-                                                   gap_open, gap_extend)
+        align_MCS_left = parasail.sg_striped_profile_16(MCS_query_left, longread_doubled, gap_open, gap_extend)
+        align_MCS_right = parasail.sg_striped_profile_16(MCS_query_right, longread_doubled, gap_open, gap_extend)
 
-        MCS_start = align_MCS.end_ref - len(MCS_flank)
-        MCS_end = align_MCS.end_ref
-        MCS_score = align_MCS.score
+        MCS_start = align_MCS_left.end_ref
+        MCS_end = align_MCS_right.end_ref - len(MCS_right_flank)
+        left_anchor_score = align_MCS_left.score
+        right_anchor_score = align_MCS_right.score
         MCS_len = len(longread_doubled[MCS_start:MCS_end])
         
         # catch reads where MCS flank isn't fully covered
-        if (MCS_len < len(MCS_flank)):
-            df_dict['MCS_score'].append(MCS_score)
+        if (MCS_start >= MCS_end) or (MCS_len > 2*len(MCS_flank)):
+            # try taking middle section of doubled read instead
+            # (should catch the correct start/end since reads are doubled)
+            longread_doubled = longread_doubled[read_len//2:(read_len//2)+read_len]
+            align_MCS_left = parasail.sg_striped_profile_16(MCS_query_left, longread_doubled, gap_open, gap_extend)
+            align_MCS_right = parasail.sg_striped_profile_16(MCS_query_right, longread_doubled, gap_open, gap_extend)
+
+            MCS_start = align_MCS_left.end_ref
+            MCS_end = align_MCS_right.end_ref - len(MCS_right_flank)
+            left_anchor_score = align_MCS_left.score
+            right_anchor_score = align_MCS_right.score
+            MCS_len = len(longread_doubled[MCS_start:MCS_end])
+        
+        # check again, if still bad, skip barcode alignment and mark failed anchor
+        if (MCS_start >= MCS_end) or (MCS_len > 2*len(MCS_flank)):
+            df_dict['left_anchor_score'].append(left_anchor_score)
+            df_dict['right_anchor_score'].append(right_anchor_score)
             df_dict['read_type'].append('plasmid_failed_anchor')
             df_dict['seq_len'].append(read_len)
             df_dict['MCS_len'].append(MCS_len)
+            df_dict['MCS_seq'].append(longread_doubled[MCS_start:MCS_end])
             df_dict['seq_id'].append(read_id)
             [df_dict[bc[0]].append(np.nan) for bc in bc_name_seq]
             [df_dict[rs[0]].append(rs[1] in longread.seq.decode()) for rs in restriction_sites]
-            df_dict['MCS_seq'].append(longread_doubled[MCS_start:MCS_end])
             continue
 
         # get barcode scores
@@ -125,7 +143,8 @@ def barcode_scores(outpath: str, barcode_path: str, flanks_path,
             df_dict[bc[0]].append(bc_align.score)
 
         # append df values
-        df_dict['MCS_score'].append(MCS_score)
+        df_dict['left_anchor_score'].append(left_anchor_score)
+        df_dict['right_anchor_score'].append(right_anchor_score)
         df_dict['MCS_len'].append(MCS_len)
         # get restriction site booleans
         [df_dict[rs[0]].append(rs[1] in longread_doubled[MCS_start:MCS_end]) for rs in restriction_sites]
@@ -150,7 +169,8 @@ def barcode_scores(outpath: str, barcode_path: str, flanks_path,
         MCS_flank = MCS_left_flank + 'N'*insert_len + MCS_right_flank
             
         #custom align matrix
-        MCS_query = parasail.profile_create_16(MCS_flank, user_matrix)
+        MCS_query_left = parasail.profile_create_16(MCS_left_flank, user_matrix)
+        MCS_query_right = parasail.profile_create_16(MCS_right_flank, user_matrix)
 
         for k,longread in enumerate(tqdm(long_reads_a31, desc='Aligning barcodes (a31)',
                                          bar_format="{desc}: |{bar}| {percentage:3.0f}% ({n} reads)",
@@ -166,22 +186,37 @@ def barcode_scores(outpath: str, barcode_path: str, flanks_path,
             # double the sequence to mimic linear sequence
             longread_doubled = longread.seq.decode() * 2
 
-            align_MCS = parasail.sg_striped_profile_16(MCS_query, longread_doubled,
-                                                       gap_open, gap_extend)
+            align_MCS_left = parasail.sg_striped_profile_16(MCS_query_left, longread_doubled, gap_open, gap_extend)
+            align_MCS_right = parasail.sg_striped_profile_16(MCS_query_right, longread_doubled, gap_open, gap_extend)
 
-            MCS_start = align_MCS.end_ref - len(MCS_flank)
-            MCS_end = align_MCS.end_ref
-            MCS_score = align_MCS.score
+            MCS_start = align_MCS_left.end_ref
+            MCS_end = align_MCS_right.end_ref - len(MCS_right_flank)
+            left_anchor_score = align_MCS_left.score
+            right_anchor_score = align_MCS_right.score
             MCS_len = len(longread_doubled[MCS_start:MCS_end])
 
-            df_dict['MCS_seq'].append(np.nan)
-        
             # catch reads where MCS flank isn't fully covered
-            if (MCS_len < len(MCS_flank)):
-                df_dict['MCS_score'].append(MCS_score)
+            if (MCS_start >= MCS_end) or (MCS_len > 2*len(MCS_flank)):
+                # try taking middle section of doubled read instead
+                # (should catch the correct start/end since reads are doubled)
+                longread_doubled = longread_doubled[read_len//2:(read_len//2)+read_len]
+                align_MCS_left = parasail.sg_striped_profile_16(MCS_query_left, longread_doubled, gap_open, gap_extend)
+                align_MCS_right = parasail.sg_striped_profile_16(MCS_query_right, longread_doubled, gap_open, gap_extend)
+
+                MCS_start = align_MCS_left.end_ref
+                MCS_end = align_MCS_right.end_ref - len(MCS_right_flank)
+                left_anchor_score = align_MCS_left.score
+                right_anchor_score = align_MCS_right.score
+                MCS_len = len(longread_doubled[MCS_start:MCS_end])
+        
+            # check again, if still bad, skip barcode alignment and mark failed anchor
+            if (MCS_start >= MCS_end) or (MCS_len > 2*len(MCS_flank)):
+                df_dict['left_anchor_score'].append(left_anchor_score)
+                df_dict['right_anchor_score'].append(right_anchor_score)
                 df_dict['read_type'].append('a31_failed_anchor')
                 df_dict['seq_len'].append(read_len)
                 df_dict['MCS_len'].append(MCS_len)
+                df_dict['MCS_seq'].append(longread_doubled[MCS_start:MCS_end])
                 df_dict['seq_id'].append(read_id)
                 [df_dict[bc[0]].append(np.nan) for bc in bc_name_seq]
                 [df_dict[rs[0]].append(rs[1] in longread.seq.decode()) for rs in restriction_sites]
@@ -195,10 +230,12 @@ def barcode_scores(outpath: str, barcode_path: str, flanks_path,
                 df_dict[bc[0]].append(bc_align.score)
 
             # append df values
-            df_dict['MCS_score'].append(MCS_score)
+            df_dict['left_anchor_score'].append(left_anchor_score)
+            df_dict['right_anchor_score'].append(right_anchor_score)
             df_dict['read_type'].append('a31')
             df_dict['seq_len'].append(read_len)
             df_dict['MCS_len'].append(MCS_len)
+            df_dict['MCS_seq'].append(longread_doubled[MCS_start:MCS_end])
             df_dict['seq_id'].append(read_id)
             # get restriction site booleans
             [df_dict[rs[0]].append(rs[1] in longread_doubled[MCS_start:MCS_end]) for rs in restriction_sites]
@@ -219,14 +256,15 @@ def barcode_scores(outpath: str, barcode_path: str, flanks_path,
             df_dict[bc[0]].append(np.nan)
 
         # append df values
-        df_dict['MCS_score'].append(np.nan)
+        df_dict['left_anchor_score'].append(np.nan)
+        df_dict['right_anchor_score'].append(np.nan)
         df_dict['read_type'].append('ecoli')
         df_dict['seq_len'].append(read_len)
         df_dict['MCS_len'].append(np.nan)
+        df_dict['MCS_seq'].append(np.nan)
         df_dict['seq_id'].append(read_id)
         # get restriction site booleans
         [df_dict[rs[0]].append(np.nan) for rs in restriction_sites]
-        df_dict['MCS_seq'].append(np.nan)
     print('Done\n')
 
     print(f'Finished read processing and barcode alignments\nGenerating outputs...')

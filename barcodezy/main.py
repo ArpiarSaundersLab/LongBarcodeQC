@@ -59,7 +59,8 @@ def main(args=None):
     align.to_csv(f'{output_dir}/{exp_name}.csv.gz', index=False)
 
     # analysis html and processing of alignment table (z-scores, top BC call, etc) 
-    report = analysis.report_gen(output_dir, align, summary_align_counts, ref_len, args.zscore)
+    report = analysis.report_gen(output_dir, align, summary_align_counts, 
+                                 ref_len, args.zscore, args.expected_insertions)
     # output compressed alignment csv with full set of BC scores and other metrics 
     report.to_csv(f'{output_dir}/{exp_name}_summary.csv.gz')
 

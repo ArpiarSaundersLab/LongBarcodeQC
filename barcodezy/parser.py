@@ -66,6 +66,12 @@ def getArgs():
                         'If desired - use this option to manually set the z-score threshold to be a '
                         'fixed value (e.g. 2.5).',
                         type=float)
+    parser.add_argument('-N', '--expected_insertions',
+                        help='Optionally set the expected number of insertions in a library. '
+                        'This is used in the html report to categorize reads in the read length histogram. '
+                        'By default, this is set to the maximum number of sites/positions found '
+                        'in the dataset.',
+                        type=int)
     return parser.parse_args()
 
 def validateArgs(args) -> None:

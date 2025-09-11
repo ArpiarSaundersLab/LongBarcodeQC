@@ -82,7 +82,7 @@ def z_score_barcode_calling(reads_df, z_thresh):
     return summary_df, svg_content
 
 
-def read_length_hist(summary_df, hue_group_col: str, max_len: int, title: str):
+def read_length_hist(summary_df, hue_group_col: str, max_len: int, title: str, expected_insertions):
     df_nofailed = summary_df[
         (summary_df.read_type != 'plasmid_failed_anchor') &
         (summary_df.read_type != 'a31_failed_anchor')
@@ -91,10 +91,15 @@ def read_length_hist(summary_df, hue_group_col: str, max_len: int, title: str):
     if hue_group_col == 'insertions':
     # add insertion group column (categorizes into max insertions vs < max insertions)
         num_pos = len([col for col in df_nofailed.columns if col.endswith('_1st_z_score')])
+        if expected_insertions is not None:
+            num_pos = expected_insertions
+        # exclude ecoli reads from insertion histogram
         df_nofailed = df_nofailed[df_nofailed.read_type != 'ecoli']
         df_nofailed['ins_group'] = df_nofailed['insertions'] == num_pos
         df_nofailed['ins_group'] = df_nofailed.ins_group.replace({True: f'{num_pos}',
                                                                   False: f'0-{num_pos-1}'})
+        if expected_insertions == 1:
+            df_nofailed['ins_group'] = df_nofailed.ins_group.replace({f'0-{num_pos-1}': '0'})
         hue_group_col = 'ins_group'
     elif 'RE_' in hue_group_col:
         df_nofailed = df_nofailed[df_nofailed.read_type != 'ecoli']
@@ -116,8 +121,45 @@ def read_length_hist(summary_df, hue_group_col: str, max_len: int, title: str):
 
     return svg_content
 
+def MCS_length_hist(summary_df, hue_group_col: str, title: str, expected_insertions):
+    df_nofailed = summary_df[
+        (summary_df.read_type != 'plasmid_failed_anchor') &
+        (summary_df.read_type != 'a31_failed_anchor') &
+        (summary_df.read_type != 'ecoli')
+        ].copy()
+    
+    if hue_group_col == 'insertions':
+    # add insertion group column (categorizes into max insertions vs < max insertions)
+        num_pos = len([col for col in df_nofailed.columns if col.endswith('_1st_z_score')])
+        if expected_insertions is not None:
+            num_pos = expected_insertions
+        # exclude ecoli reads from insertion histogram
+        df_nofailed['ins_group'] = df_nofailed['insertions'] == num_pos
+        df_nofailed['ins_group'] = df_nofailed.ins_group.replace({True: f'{num_pos}',
+                                                                  False: f'0-{num_pos-1}'})
+        if expected_insertions == 1:
+            df_nofailed['ins_group'] = df_nofailed.ins_group.replace({f'0-{num_pos-1}': '0'})
+        hue_group_col = 'ins_group'
+
+    plt.figure(figsize=(12, 7))
+    sns.histplot(data=df_nofailed[df_nofailed.MCS_len < 2*np.mean(df_nofailed.MCS_len)], x='MCS_len', 
+                 hue=hue_group_col, bins=60, alpha=0.5, palette='Set2', element='step')
+    sns.despine()
+    plt.grid(visible=True, which='major', linestyle='--', alpha=0.4)
+    plt.xlim(0, 2*np.mean(df_nofailed.MCS_len))
+    plt.xlabel('MCS cassette length (bp)')
+    plt.title(title)
+    plt.gca().get_legend().set_title('')
+    # save encoded plot
+    svg_io = StringIO()
+    plt.savefig(svg_io, format='svg', bbox_inches='tight')
+    svg_content = svg_io.getvalue()
+    svg_io.close()
+
+    return svg_content
+
 def report_gen(outpath: str, reads_df, alignment_counts: str, 
-               ref_len: int, z_thresh):
+               ref_len: int, z_thresh, expected_insertions):
     experiment_name = os.path.basename(outpath)
 
     ## alignment summary counts
@@ -139,15 +181,18 @@ def report_gen(outpath: str, reads_df, alignment_counts: str,
     max_len = max_len + math.ceil(max_len*0.1 / 1000) * 1000 # add ~10% buffer to max_len
 
     read_type_hist = read_length_hist(summary, 'read_type', max_len, 
-                                      'Read type')
+                                      'Read type', expected_insertions)
     insertion_hist = read_length_hist(summary, 'insertions', max_len, 
-                                      'Number of valid position insertions')
-    
+                                      'Number of valid position insertions', 
+                                      expected_insertions)
+    MCS_insertion_hist = MCS_length_hist(summary, 'insertions', 
+                                        'Insertions by cassette length', expected_insertions)
+
     # plots for each restriction site
     rs_plots = []
     for rs in summary.loc[:, summary.columns.str.contains('RE_')].columns:
         rs_hist_i = read_length_hist(summary, rs, max_len, 
-                                   f'{rs[3:]} site detection')
+                                   f'{rs[3:]} site detection', expected_insertions)
         rs_plots.append(rs_hist_i)
     
     # restriction site % table
@@ -157,13 +202,24 @@ def report_gen(outpath: str, reads_df, alignment_counts: str,
         (summary.read_type != 'a31_failed_anchor') &
         (summary.read_type != 'ecoli')
         ].copy()
-    enz_all = [f'{100*sum(df_no_ecoli_nofailed[x])/df_no_ecoli_nofailed.shape[0]:.2f}%' for x in enz_names]
+    # avoid division by zero if no plasmid reads in expected range
+    if df_no_ecoli_nofailed.shape[0] == 0:
+        print('Warning: No non-bacterial reads found.')
+        enz_all = ['N/A' for _ in enz_names]
+    else:
+        enz_all = [f'{100*sum(df_no_ecoli_nofailed[x])/df_no_ecoli_nofailed.shape[0]:.2f}%' for x in enz_names]
     df_plasmid_ranged = df_no_ecoli_nofailed[
         (df_no_ecoli_nofailed.read_type == 'plasmid') &
         (df_no_ecoli_nofailed.seq_len > int(ref_len*0.85)) &
         (df_no_ecoli_nofailed.seq_len < int(ref_len*1.15))
         ]
-    enz_specific = [f'{100*sum(df_plasmid_ranged[x])/df_plasmid_ranged.shape[0]:.2f}%' for x in enz_names] 
+    # avoid division by zero if no plasmid reads in expected range
+    if df_plasmid_ranged.shape[0] == 0:
+        print('Warning: No plasmid reads found in expected length range.')
+        enz_specific = ['N/A' for _ in enz_names]
+    else:
+        enz_specific = [f'{100*sum(df_plasmid_ranged[x])/df_plasmid_ranged.shape[0]:.2f}%' for x in enz_names] 
+
     enz_df = pd.DataFrame({'Restriction site': [x[3:] for x in enz_names],
                            'All non-bacterial reads': enz_all, 
                            'Plasmid of interest reads of expected length': enz_specific})
@@ -185,7 +241,8 @@ def report_gen(outpath: str, reads_df, alignment_counts: str,
      'rs_plot_names': enz_df['Restriction site'].tolist(),
      'headers_enz': enz_df.columns.tolist(),
      'data_enz': enz_df.values.tolist(),
-     'z_plot': z_plot
+     'z_plot': z_plot,
+     'MCS_insertions': MCS_insertion_hist
     }
 
     html_report = template.render(context)
