@@ -5,3 +5,4 @@ __pycache__
 *.bam*
 barcodezy/test/out/
 barcodezy/test/misc/
+site/
