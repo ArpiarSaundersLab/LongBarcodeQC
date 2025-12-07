@@ -173,7 +173,7 @@ def MCS_length_hist(
 
     fig = plt.figure(figsize=(12, 7))
     sns.histplot(
-        data=df_nofailed[df_nofailed.MCS_len < 2*np.mean(df_nofailed.MCS_len)],
+        data=df_nofailed[df_nofailed.MCS_len < 2.5*np.mean(df_nofailed.MCS_len)],
         x='MCS_len',
         hue=hue_group_col,
         bins=60,
@@ -183,7 +183,7 @@ def MCS_length_hist(
     )
     sns.despine()
     plt.grid(visible=True, which='major', linestyle='--', alpha=0.4)
-    plt.xlim(0, 2*np.mean(df_nofailed.MCS_len))
+    plt.xlim(0, 2.5*np.mean(df_nofailed.MCS_len))
     plt.xlabel('MCS cassette length (bp)')
     plt.title(title)
     legend = plt.gca().get_legend()

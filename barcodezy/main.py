@@ -57,9 +57,11 @@ def main(args=None):
                                            args.insert_length, args.enzymes, 
                                            args.a31, args.SBARRO)
     # output compressed alignment csv with full set of BC scores and other metrics 
+    print('\nWriting full barcode alignment csv...')
     align.to_csv(f'{output_dir}/{exp_name}.csv.gz', index=False)
 
     # analysis html and processing of alignment table (z-scores, top BC call, etc) 
+    print('Generating html report...')
     report = analysis.report_gen(
         output_dir,
         align,
@@ -69,6 +71,7 @@ def main(args=None):
         args.expected_insertions,
     )
     # output compressed alignment csv with full set of BC scores and other metrics
+    print('Writing summary csv...')
     report.to_csv(f'{output_dir}/{exp_name}_summary.csv.gz')
 
     print(f'\nRun complete!')
