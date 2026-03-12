@@ -2,10 +2,12 @@ import argparse
 import sys
 import os
 
-def getArgs() -> argparse.Namespace:
+DEFAULT_PLASMID = 'a31'
+
+def getArgs() -> tuple[argparse.Namespace, argparse.ArgumentParser]:
     """Parse and return command-line arguments for barcodezy.
 
-    Returns an argparse.Namespace with validated CLI options.
+    Returns a tuple of (argparse.Namespace, ArgumentParser) for use with validateArgs.
     """
     arg_parser = argparse.ArgumentParser(
         description="Analyze long-read barcodes and generate a summary report"
@@ -30,7 +32,7 @@ def getArgs() -> argparse.Namespace:
                         'concatenate the circular plasmid sequence to itself '
                         'to optimize alignment.',
                         type=str,
-                        default='a31')
+                        default=DEFAULT_PLASMID)
     arg_parser.add_argument('-b', '--barcodes',
                         help='Path to barcode fasta file. '
                         'One barcode per line. Fasta headers must be '
@@ -79,9 +81,9 @@ def getArgs() -> argparse.Namespace:
                         'By default, this is set to the maximum number of sites/positions found '
                         'in the dataset.',
                         type=int)
-    return arg_parser.parse_args()
+    return arg_parser.parse_args(), arg_parser
 
-def validateArgs(args: argparse.Namespace) -> None:
+def validateArgs(args: argparse.Namespace, arg_parser: argparse.ArgumentParser) -> None:
     """Validate arguments and filesystem state.
 
     - Ensures input/output paths exist in expected forms
@@ -90,14 +92,11 @@ def validateArgs(args: argparse.Namespace) -> None:
     """
     input_path = os.path.normpath(args.input)
     output_path = os.path.normpath(args.output)
-    plasmid_path = args.plasmid
     barcode_path = os.path.normpath(args.barcodes)
-    restriction_path = args.enzymes
 
     # exit if input path does not exist
     if not os.path.isdir(input_path):
-        print(f'Error: Input path does not exist or is not a directory: {input_path}')
-        sys.exit(1)
+        arg_parser.error(f'Input path does not exist or is not a directory: {input_path}')
 
     # create output directory if it does not exist
     if not os.path.isdir(output_path):
@@ -105,55 +104,44 @@ def validateArgs(args: argparse.Namespace) -> None:
 
     # exit if output directory already contains files
     if len(os.listdir(output_path)) > 0:
-        # allow <= 1 file to exist to avoid regenerating the trimmed fastq output
-        print('Error: Output path is not empty. Remove contents or choose a different output name.')
-        sys.exit(1)
-    
-    # verify reference options
-    if args.plasmid != 'a31': # if not a31, user input plasmid path 
-        if not os.path.exists(os.path.normpath(plasmid_path)):
-            print(f'Error: Plasmid fasta file does not exist: {plasmid_path}')
-            sys.exit(1)
-        if args.SBARRO: # don't combine SBARRO and plasmid reference options
-            print('Error: SBARRO option cannot be used with a custom plasmid.')
-            sys.exit(1)
-    # cannot combine default a.31 plasmid and a.31 option (unless using SBARRO option)
-    elif args.a31 and not args.SBARRO: 
-        print('Error: No plasmid was provided. The default a.31 plasmid cannot be combined with '
-              'the a.31 option. Only use the a.31 option to annotate it as contamination.')
-        sys.exit(1)
+        arg_parser.error('Output path is not empty. Remove contents or choose a different output name.')
 
-    if not os.path.exists(barcode_path): # check if barcode path exists
-        print(f'Error: Barcode fasta file does not exist: {barcode_path}')
-        sys.exit(1)
-    
-    # verify restriction enzyme path exists
+    # verify reference options
+    if args.plasmid != DEFAULT_PLASMID:  # if not a31, user provided a plasmid path
+        if not os.path.exists(os.path.normpath(args.plasmid)):
+            arg_parser.error(f'Plasmid fasta file does not exist: {args.plasmid}')
+        if args.SBARRO:  # don't combine SBARRO and custom plasmid options
+            arg_parser.error('SBARRO option cannot be used with a custom plasmid.')
+    # cannot combine default a.31 plasmid and a.31 option (unless using SBARRO option)
+    elif args.a31 and not args.SBARRO:
+        arg_parser.error('No plasmid was provided. The default a.31 plasmid cannot be combined with '
+                         'the a.31 option. Only use the a.31 option to annotate it as contamination.')
+
+    if not os.path.exists(barcode_path):  # check if barcode path exists
+        arg_parser.error(f'Barcode fasta file does not exist: {barcode_path}')
+
+    # verify restriction enzyme path and format
     if args.enzymes:
-        rs_path = os.path.normpath(restriction_path)
+        rs_path = os.path.normpath(args.enzymes)
         if not os.path.exists(rs_path):
-            print(f'Error: Restriction enzyme file does not exist: {rs_path}')
-            sys.exit(1)
+            arg_parser.error(f'Restriction enzyme file does not exist: {rs_path}')
         with open(rs_path, 'r') as fh:
             for line in fh:
                 parts = line.strip().split(',')
-                if len(parts) != 2: # check if each line has 2 elements (name, seq)
-                    print('Error: Restriction enzyme file must contain one name and sequence '
-                          'per line, separated by a comma.')
-                    sys.exit(1)
-
+                if len(parts) != 2:  # check if each line has 2 elements (name, seq)
+                    arg_parser.error('Restriction enzyme file must contain one name and sequence '
+                                     'per line, separated by a comma.')
                 seq = parts[1]
-                # verify seq is only ACTG
-                if not all(c in {'A', 'C', 'T', 'G'} for c in seq.upper()):
-                    print('Error: Provided restriction enzyme sequences must only contain [ACTG]')
-                    sys.exit(1)
-    
-    # plasmid path and flanks must be provided without SBARRO option
-    if not args.SBARRO and args.plasmid != 'a31':
-        # require flanking sequence around MCS if not default a.31 or SBARRO
+                if not all(c in {'A', 'C', 'T', 'G'} for c in seq.upper()):  # verify seq is only ACTG
+                    arg_parser.error('Provided restriction enzyme sequences must only contain [ACTG]')
+
+    # flanks required when using a custom plasmid without SBARRO
+    if not args.SBARRO and args.plasmid != DEFAULT_PLASMID:
         if not args.flanks:
-            print('Error: Upstream and downstream MCS flanking regions must be provided (fasta), '
-                  'unless using default a.31 plasmid or SBARRO option.')
-            sys.exit(1)
-    
+            arg_parser.error('Upstream and downstream MCS flanking regions must be provided (fasta), '
+                             'unless using default a.31 plasmid or SBARRO option.')
+        if not os.path.exists(os.path.normpath(args.flanks)):
+            arg_parser.error(f'Flanks fasta file does not exist: {args.flanks}')
+
     # print user options
     print('User command:\n', ' '.join(sys.argv), '\n', sep='')

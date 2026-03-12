@@ -13,8 +13,8 @@ def main(args=None):
     start = datetime.now()
     print(f'\nStarting run...\n{start.strftime("%Y-%m-%d %H:%M:%S")}\n')
 
-    args = parser.getArgs() # grab user arguments
-    
+    args, arg_parser = parser.getArgs() # grab user arguments
+
     # inputs
     read_dir = os.path.normpath(args.input)
     barcode_design = os.path.normpath(args.barcodes)
@@ -22,10 +22,10 @@ def main(args=None):
     output_dir = os.path.normpath(args.output)
     exp_name = os.path.basename(output_dir)
 
-    # validate user options 
-    parser.validateArgs(args)
+    # validate user options
+    parser.validateArgs(args, arg_parser)
 
-    if args.plasmid == 'a31': # (default option)
+    if args.plasmid == parser.DEFAULT_PLASMID: # (default option)
         # set plasmid path to default a.31 plasmid
         args.plasmid = str(files('barcodezy.plasmids').joinpath('a.31.fa'))
         # set flanks path to default a.31 flanks
