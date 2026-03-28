@@ -62,6 +62,31 @@
         .tabcontent.active {
             display: block;
         }
+        .subtab {
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 10px;
+        }
+        .subtab button {
+            background-color: #f8f8f8;
+            border: none;
+            outline: none;
+            cursor: pointer;
+            padding: 6px 14px;
+            transition: 0.3s;
+            font-size: 14px;
+        }
+        .subtab button:hover {
+            background-color: #eee;
+        }
+        .subtab button.active {
+            background-color: #ddd;
+        }
+        .subtabcontent {
+            display: none;
+        }
+        .subtabcontent.active {
+            display: block;
+        }
     </style>
 </head>
 
@@ -187,10 +212,17 @@
                 {% endfor %}
             </div>
             
-            {% for svg in rs_plots %}
+            {% for pair in rs_plots %}
             <div id="tab{{ loop.index }}" class="tabcontent {% if loop.first %}active{% endif %}">
-                <div class="svg-container">
-                    {{ svg | safe }}
+                <div class="subtab">
+                    <button class="subtablinks active" onclick="openSubTab(event, 'subtab{{ loop.index }}_read', {{ loop.index }})">Read length</button>
+                    <button class="subtablinks" onclick="openSubTab(event, 'subtab{{ loop.index }}_mcs', {{ loop.index }})">MCS length</button>
+                </div>
+                <div id="subtab{{ loop.index }}_read" class="subtabcontent active">
+                    <div class="svg-container">{{ pair.read | safe }}</div>
+                </div>
+                <div id="subtab{{ loop.index }}_mcs" class="subtabcontent">
+                    <div class="svg-container">{{ pair.mcs | safe }}</div>
                 </div>
             </div>
             {% endfor %}
@@ -198,6 +230,22 @@
     </div>
 
     <script>
+        function openSubTab(evt, subTabName, parentIdx) {
+            var parent = document.getElementById('tab' + parentIdx);
+            var subtabcontent = parent.getElementsByClassName('subtabcontent');
+            for (var i = 0; i < subtabcontent.length; i++) {
+                subtabcontent[i].style.display = 'none';
+                subtabcontent[i].classList.remove('active');
+            }
+            var subtablinks = parent.getElementsByClassName('subtablinks');
+            for (var i = 0; i < subtablinks.length; i++) {
+                subtablinks[i].classList.remove('active');
+            }
+            document.getElementById(subTabName).style.display = 'block';
+            document.getElementById(subTabName).classList.add('active');
+            evt.currentTarget.classList.add('active');
+        }
+
         function openTab(evt, tabName) {
             var i, tabcontent, tablinks;
             

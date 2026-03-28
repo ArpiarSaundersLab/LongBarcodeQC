@@ -89,6 +89,18 @@ def z_score_barcode_calling(reads_df: pd.DataFrame, z_thresh: float | None) -> T
     return summary_df, svg_content
 
 
+def _binwidth(max_val: float) -> int:
+    if max_val < 100:
+        return 2
+    elif max_val < 1000:
+        return 5
+    elif max_val < 5000:
+        return 20
+    elif max_val < 10000:
+        return 40
+    return 80
+
+
 def read_length_hist(
     summary_df: pd.DataFrame,
     hue_group_col: str,
@@ -123,7 +135,7 @@ def read_length_hist(
         data=df_nofailed[df_nofailed.seq_len < max_len],
         x='seq_len',
         hue=hue_group_col,
-        bins=60,
+        binwidth=_binwidth(max_len),
         alpha=0.5,
         palette='Set2',
         element='step',
@@ -171,19 +183,20 @@ def MCS_length_hist(
             df_nofailed['ins_group'] = df_nofailed.ins_group.replace({f'0-{num_pos-1}': '0'})
         hue_group_col = 'ins_group'
 
+    mcs_max = 2.5 * np.mean(df_nofailed.MCS_len)
     fig = plt.figure(figsize=(12, 7))
     sns.histplot(
-        data=df_nofailed[df_nofailed.MCS_len < 2.5*np.mean(df_nofailed.MCS_len)],
+        data=df_nofailed[df_nofailed.MCS_len < mcs_max],
         x='MCS_len',
         hue=hue_group_col,
-        bins=60,
+        binwidth=_binwidth(mcs_max),
         alpha=0.5,
         palette='Set2',
         element='step',
     )
     sns.despine()
     plt.grid(visible=True, which='major', linestyle='--', alpha=0.4)
-    plt.xlim(0, 2.5*np.mean(df_nofailed.MCS_len))
+    plt.xlim(0, mcs_max)
     plt.xlabel('MCS cassette length (bp)')
     plt.title(title)
     legend = plt.gca().get_legend()
@@ -236,10 +249,12 @@ def report_gen(
 
     # plots for each restriction site
     rs_plots = []
+    rs_mcs_plots = []
     for rs in summary.loc[:, summary.columns.str.contains('RE_')].columns:
-        rs_hist_i = read_length_hist(summary, rs, max_len, 
-                                   f'{rs[3:]} site detection', expected_insertions)
-        rs_plots.append(rs_hist_i)
+        rs_plots.append(read_length_hist(summary, rs, max_len,
+                                         f'{rs[3:]} site detection', expected_insertions))
+        rs_mcs_plots.append(MCS_length_hist(summary, rs,
+                                            f'{rs[3:]} site detection (MCS length)', expected_insertions))
     
     # restriction site % table
     enz_names = summary.loc[:, summary.columns.str.contains('RE_')].columns
@@ -283,7 +298,7 @@ def report_gen(
      'total_reads': total_reads,
      'read_type': read_type_hist,
      'insertions': insertion_hist,
-     'rs_plots': rs_plots,
+     'rs_plots': [{'read': r, 'mcs': m} for r, m in zip(rs_plots, rs_mcs_plots)],
      'rs_plot_names': enz_df['Restriction site'].tolist(),
      'headers_enz': enz_df.columns.tolist(),
      'data_enz': enz_df.values.tolist(),
