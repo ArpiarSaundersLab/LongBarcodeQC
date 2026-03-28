@@ -172,9 +172,7 @@ def barcode_scores(
         df_dict['MCS_seq'].append(longread_doubled[MCS_start:MCS_end])
     tqdm.write('Done\n')
 
-    #### 
     # call a31 barcodes if user flags a31
-    ####
     if a31:
         print('Processing a.31 reads...')
         long_reads_a31 = parasail.sequences_from_file(f'{outpath}/{exp_name}.a31.aligned.fa.gz')
@@ -186,7 +184,6 @@ def barcode_scores(
         # insert N sequence of expected insert length between flanks
         MCS_flank = MCS_left_flank + 'N'*insert_len + MCS_right_flank
             
-        #custom align matrix
         MCS_query_left = parasail.profile_create_16(MCS_left_flank, user_matrix)
         MCS_query_right = parasail.profile_create_16(MCS_right_flank, user_matrix)
 
@@ -263,7 +260,7 @@ def barcode_scores(
                 df_dict[rs_name].append(rs_seq in longread_doubled[MCS_start:MCS_end])
         tqdm.write('Done\n')
     
-    ### ecoli reads
+    # ecoli reads
     print('Processing E. coli reads...')
     long_reads_ecoli = parasail.sequences_from_file(f'{outpath}/{exp_name}.ecoli.aligned.fa.gz') 
     for z, longread in enumerate(long_reads_ecoli):

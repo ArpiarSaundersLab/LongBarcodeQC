@@ -12,7 +12,6 @@ def getArgs() -> tuple[argparse.Namespace, argparse.ArgumentParser]:
     arg_parser = argparse.ArgumentParser(
         description="Analyze long-read barcodes and generate a summary report"
     )
-    # arg options
     arg_parser.add_argument('-i', '--input',
                         help='Path to input fastq files '
                         '(nanopore fastq_pass folder). ',

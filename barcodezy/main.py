@@ -13,12 +13,10 @@ def main(args=None):
     start = datetime.now()
     print(f'\nStarting run...\n{start.strftime("%Y-%m-%d %H:%M:%S")}\n')
 
-    args, arg_parser = parser.getArgs() # grab user arguments
+    args, arg_parser = parser.getArgs()
 
-    # inputs
     read_dir = os.path.normpath(args.input)
     barcode_design = os.path.normpath(args.barcodes)
-    # output
     output_dir = os.path.normpath(args.output)
     exp_name = os.path.basename(output_dir)
 
@@ -56,11 +54,11 @@ def main(args=None):
     align = barcode_aligner.barcode_scores(output_dir, barcode_design, args.flanks,
                                            args.insert_length, args.enzymes, 
                                            args.a31, args.SBARRO)
-    # output compressed alignment csv with full set of BC scores and other metrics 
+    # output verbose csv with every barcode alignment score per read (can be large)
     print('\nWriting full barcode alignment csv...')
     align.to_csv(f'{output_dir}/{exp_name}.csv.gz', index=False)
 
-    # analysis html and processing of alignment table (z-scores, top BC call, etc) 
+    # analysis html and processing of alignment table (z-scores, top BC call, etc)
     print('Generating html report...')
     report = analysis.report_gen(
         output_dir,
@@ -70,7 +68,6 @@ def main(args=None):
         args.zscore,
         args.expected_insertions,
     )
-    # output compressed alignment csv with full set of BC scores and other metrics
     print('Writing summary csv...')
     report.to_csv(f'{output_dir}/{exp_name}_summary.csv.gz')
 

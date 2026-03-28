@@ -133,7 +133,6 @@ def mm2_align(outpath: str, trimmed_reads_path: str, a31: bool) -> Dict[str, int
         os.system(f'samtools fasta {outpath}/.tmp.ecoli.sam >{ecoli_fa_aligned} 2>>{outpath}/Log.txt')
         os.system(f'gzip {ecoli_fa_aligned} && rm {outpath}/.tmp.ecoli.sam')
 
-        
         # store counts for aligned reads, unaligned reads, ecoli reads
         summary_dict = {}
         summary_dict['Target plasmid'] = int(os.popen(f'samtools view -F 4 -F 2048 {output_sorted_bam_file} \'{ref_name}\' | \

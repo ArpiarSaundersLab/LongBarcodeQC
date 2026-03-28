@@ -211,7 +211,6 @@ def report_gen(
 
     ## alignment summary counts
     total_reads = sum(alignment_counts.values())
-    #alignment_counts['Total'] = sum(alignment_counts.values())
     align_df = pd.DataFrame(alignment_counts, index=['Count']).transpose()
     align_df = align_df.reset_index().rename(columns={'index': 'Alignment type'})
     percents = (align_df['Count'] / align_df['Count'].sum()) * 100
