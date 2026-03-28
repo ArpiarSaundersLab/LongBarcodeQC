@@ -1,28 +1,39 @@
+import glob
+import gzip
 import os
 from importlib.resources import files
 from typing import Dict
 
 
-def rename_reads(raw_read_file: str, exp_name: str) -> None:
-    """Rewrite FASTQ headers to include experiment name and sequential IDs."""
-    print('Writing trimmed reads to single fastq...\n')
-    with open(raw_read_file, 'r') as reads:
-        tmp_rewrite_file = f'{raw_read_file[0:-5]}_renamed.fastq'
-        with open(tmp_rewrite_file, 'w') as out:
-            read_count = 0
-            for i, line in enumerate(reads):
-                if i % 4 == 0:
-                    read_count += 1
-                    parts = line.strip().split(' ')
-                    rest = ' '.join(parts[1:])
-                    out.write(f'@{exp_name}_{read_count} {rest}\n')
-                elif i % 4 == 1:
-                    out.write(f'{line.strip()}\n')
-                elif i % 4 == 2:
-                    out.write(f'{line.strip()}\n')
-                else:  # i % 4 == 3
-                    out.write(f'{line.strip()}\n')
-    os.replace(tmp_rewrite_file, raw_read_file)
+def rename_reads(input_path: str, output_file: str, exp_name: str) -> None:
+    """Merge FASTQ files from a directory (or single file) and rewrite headers
+    with experiment name and sequential IDs."""
+    if os.path.isfile(input_path):
+        fastq_files = [input_path]
+    else:
+        fastq_files = sorted(
+            glob.glob(os.path.join(input_path, '**', '*.fastq'), recursive=True) +
+            glob.glob(os.path.join(input_path, '**', '*.fastq.gz'), recursive=True) +
+            glob.glob(os.path.join(input_path, '**', '*.fq'), recursive=True) +
+            glob.glob(os.path.join(input_path, '**', '*.fq.gz'), recursive=True)
+        )
+        if not fastq_files:
+            raise FileNotFoundError(f'No FASTQ files found in: {input_path}')
+
+    print(f'Merging and renaming reads from {len(fastq_files)} file(s)...\n')
+    read_count = 0
+    with open(output_file, 'w') as out:
+        for fq_path in fastq_files:
+            opener = gzip.open if fq_path.endswith('.gz') else open
+            with opener(fq_path, 'rt') as reads:
+                for i, line in enumerate(reads):
+                    if i % 4 == 0:
+                        read_count += 1
+                        parts = line.strip().split(' ')
+                        rest = ' '.join(parts[1:])
+                        out.write(f'@{exp_name}_{read_count} {rest}\n')
+                    else:
+                        out.write(f'{line.strip()}\n')
 
 def generate_ref(outpath: str, insert_len: int) -> int:
     exp_name = os.path.basename(outpath)
