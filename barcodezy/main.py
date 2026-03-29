@@ -47,9 +47,10 @@ def main(args=None):
     align = barcode_aligner.barcode_scores(output_dir, barcode_design, args.flanks,
                                            args.insert_length, args.enzymes, 
                                            args.a31, args.SBARRO)
-    # output verbose csv with every barcode alignment score per read (can be large)
-    print('\nWriting full barcode alignment csv...')
-    align.to_csv(f'{output_dir}/{exp_name}.csv.gz', index=False)
+    # output verbose parquet with every barcode alignment score per read (can be large)
+    if args.full_output:
+        print('\nWriting full barcode alignment file...')
+        align.to_parquet(f'{output_dir}/{exp_name}.parquet', index=False)
 
     # analysis html and processing of alignment table (z-scores, top BC call, etc)
     print('Generating html report...')
@@ -62,7 +63,7 @@ def main(args=None):
         args.expected_insertions,
     )
     print('Writing summary csv...')
-    report.to_csv(f'{output_dir}/{exp_name}_summary.csv.gz')
+    report.drop(columns=['MCS_seq']).to_csv(f'{output_dir}/{exp_name}_summary.csv.gz')
 
     print(f'\nRun complete!')
     end = datetime.now()

@@ -80,6 +80,11 @@ def getArgs() -> tuple[argparse.Namespace, argparse.ArgumentParser]:
                         'By default, this is set to the maximum number of sites/positions found '
                         'in the dataset.',
                         type=int)
+    arg_parser.add_argument('--full-output',
+                        help='Write the full barcode alignment scores as a parquet file '
+                        '(includes MCS sequences and all per-barcode scores). '
+                        'This file can be large.',
+                        action='store_true')
     return arg_parser.parse_args(), arg_parser
 
 def validateArgs(args: argparse.Namespace, arg_parser: argparse.ArgumentParser) -> None:
