@@ -24,7 +24,7 @@ dependencies = [
 readme = "README.md"
 
 [project.urls]
-repository = "https://github.com/barcodezy/LongBarcodeQC"
+repository = "https://github.com/goodez/LongBarcodeQC"
 
 [tool.setuptools]
 packages = ["longbarcodeqc"]
