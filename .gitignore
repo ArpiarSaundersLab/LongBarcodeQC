@@ -3,6 +3,8 @@
 *.egg-info
 __pycache__
 *.bam*
-barcodezy/test/out/
-barcodezy/test/misc/
+longbarcodeqc/test/out/
+longbarcodeqc/test/misc/
+longbarcodeqc/out/
 site/
+.vscode

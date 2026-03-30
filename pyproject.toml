@@ -5,7 +5,7 @@ requires = [
 
 [project]
 name = "LongBarcodeQC"
-version = "0.1.0"
+version = "1.0.0"
 description = "Analyze long-read barcodes and generate a summary report"
 authors = [
     {name="Zach Goode", email="goodez@ohsu.edu"}

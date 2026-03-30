@@ -1,13 +1,13 @@
-[M::mm_idx_gen::0.109*0.97] collected minimizers
-[M::mm_idx_gen::0.142*1.39] sorted minimizers
-[M::main::0.142*1.39] loaded/built the index for 203 target sequence(s)
-[M::mm_mapopt_update::0.155*1.35] mid_occ = 10
+[M::mm_idx_gen::0.121*0.94] collected minimizers
+[M::mm_idx_gen::0.154*1.34] sorted minimizers
+[M::main::0.154*1.34] loaded/built the index for 203 target sequence(s)
+[M::mm_mapopt_update::0.168*1.30] mid_occ = 10
 [M::mm_idx_stat] kmer size: 15; skip: 10; is_hpc: 0; #seq: 203
-[M::mm_idx_stat::0.167*1.32] distinct minimizers: 1024145 (97.05% are singletons); average occurrences: 1.035; average spacing: 5.352; total length: 5675664
-[M::worker_pipeline::2.421*2.07] mapped 3000 sequences
+[M::mm_idx_stat::0.180*1.28] distinct minimizers: 1024145 (97.05% are singletons); average occurrences: 1.035; average spacing: 5.352; total length: 5675664
+[M::worker_pipeline::2.476*2.03] mapped 3000 sequences
 [M::main] Version: 2.28-r1209
 [M::main] CMD: minimap2 -ax map-ont --secondary=no -t 3 out/3k_STAR-SBARRO_test/.tmp.ref.fa out/3k_STAR-SBARRO_test/3k_STAR-SBARRO_test.fastq
-[M::main] Real time: 2.428 sec; CPU: 5.023 sec; Peak RSS: 0.171 GB
+[M::main] Real time: 2.484 sec; CPU: 5.044 sec; Peak RSS: 0.168 GB
 [M::bam2fq_mainloop] discarded 0 singletons
 [M::bam2fq_mainloop] processed 437 reads
 [M::bam2fq_mainloop] discarded 0 singletons
