@@ -4,7 +4,7 @@ requires = [
 ]
 
 [project]
-name = "barcodezy"
+name = "LongBarcodeQC"
 version = "0.1.0"
 description = "Analyze long-read barcodes and generate a summary report"
 authors = [
@@ -24,13 +24,13 @@ dependencies = [
 readme = "README.md"
 
 [project.urls]
-repository = "https://github.com/barcodezy/barcodezy"
+repository = "https://github.com/barcodezy/LongBarcodeQC"
 
 [tool.setuptools]
-packages = ["barcodezy"]
+packages = ["longbarcodeqc"]
 
 [project.scripts]
-barcodezy = "barcodezy.main:main"
+LongBarcodeQC = "longbarcodeqc.main:main"
 
 [tool.setuptools.package-data]
-"barcodezy" = ["plasmids/**", "template/**"]
+"longbarcodeqc" = ["plasmids/**", "template/**"]
