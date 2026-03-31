@@ -30,7 +30,7 @@ repository = "https://github.com/goodez/LongBarcodeQC"
 packages = ["longbarcodeqc"]
 
 [project.scripts]
-LongBarcodeQC = "longbarcodeqc.main:main"
+lbqc = "longbarcodeqc.main:main"
 
 [tool.setuptools.package-data]
 "longbarcodeqc" = ["plasmids/**", "template/**", "barcodes/**"]
