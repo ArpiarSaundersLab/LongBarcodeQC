@@ -18,7 +18,13 @@
 
 LongBarcodeQC requires **Python ≥ 3.10** and two external bioinformatics tools that must be installed separately.
 
-### 1. Install external dependencies
+Install LongBarcodeQC
+
+```bash
+pip install LongBarcodeQC
+```
+
+Install external dependencies
 
 **minimap2** — long-read aligner:
 
@@ -46,11 +52,7 @@ brew install samtools
 sudo apt install samtools
 ```
 
-### 2. Install LongBarcodeQC
 
-```bash
-pip install LongBarcodeQC
-```
 
 To install directly from GitHub:
 
