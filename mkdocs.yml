@@ -1,18 +1,11 @@
 site_name: LongBarcodeQC
-site_url: https://goodez.github.io/barcodezy/
-repo_url: https://github.com/goodez/barcodezy
+site_url: https://goodez.github.io/LongBarcodeQC/
+repo_url: https://github.com/goodez/LongBarcodeQC
 edit_uri: edit/main/docs/
 
 theme:
   name: readthedocs
-  features:
-    - navigation.instant
-    - navigation.tracking
-    - navigation.sections
-    - content.code.copy
-    - content.tabs.link
-    - search.suggest
-    - search.highlight
+  logo: assets/icon.png
 
 nav:
   - Home: index.md
@@ -21,7 +14,6 @@ nav:
       - Quickstart: getting-started/quickstart.md
   - Usage:
       - CLI Reference: usage/cli.md
-  - Changelog: changelog.md
 
 markdown_extensions:
   - admonition
@@ -31,4 +23,3 @@ markdown_extensions:
   - pymdownx.tabbed
   - pymdownx.highlight
   - pymdownx.superfences
-

@@ -1,30 +1,45 @@
 # Installation
 
-## via Conda
+## 1. Install external dependencies
+
+LongBarcodeQC requires **minimap2** and **samtools** to be installed separately.
+
+**minimap2** — long-read aligner:
 
 ```bash
-conda install -c conda-forge LongBarcodeQC
+# conda (macOS/Linux)
+conda install -c bioconda minimap2
+
+# Homebrew (macOS)
+brew install minimap2
+
+# apt (Linux)
+sudo apt install minimap2
 ```
 
-## via pip
+**samtools** — SAM/BAM processing:
 
 ```bash
-pip install LongBarcodeQC 
+# conda (macOS/Linux)
+conda install -c bioconda samtools
+
+# Homebrew (macOS)
+brew install samtools
+
+# apt (Linux)
+sudo apt install samtools
 ```
 
-## External requirements
+## 2. Install LongBarcodeQC
 
-Install `parasail` through pip...
-
-Install `Porechop`:
 ```bash
-git clone https://github.com/rrwick/Porechop.git
-cd Porechop
-python3 setup.py install
+pip install LongBarcodeQC
 ```
-Install `minimap2`:
+
+To install directly from GitHub:
+
 ```bash
-git clone https://github.com/lh3/minimap2
-cd minimap2 && make
-# Add to Path...
+pip install git+ssh://git@github.com/goodez/LongBarcodeQC.git
 ```
+
+After installation, the `lbqc` command will be available in your environment.
