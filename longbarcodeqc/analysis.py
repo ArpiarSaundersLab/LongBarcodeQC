@@ -282,8 +282,8 @@ def report_gen(
         enz_specific = [f'{100*sum(df_plasmid_ranged[x])/df_plasmid_ranged.shape[0]:.2f}%' for x in enz_names] 
 
     enz_df = pd.DataFrame({'Restriction site': [x[3:] for x in enz_names],
-                           'All non-bacterial reads': enz_all, 
-                           'Plasmid of interest reads of expected length': enz_specific})
+                           f'% in MCS sequence for plasmid of interest': enz_specific, 
+                           f'% in full length non-bacterial reads': enz_all})
 
 
     # generate html 

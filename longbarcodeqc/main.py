@@ -23,6 +23,14 @@ def main(args=None):
     # validate user options
     parser.validateArgs(args, arg_parser)
 
+    BARCODE_PRESETS = {
+        'EV': 'barcodes/3_1_256_rev/barcodes_tail_only.fa',
+        'AP': 'barcodes/3_1_256/barcodes_tail_only.fa',
+        'TS': 'barcodes/4_4_3/barcodes_probe_only.fa',
+    }
+    if args.barcodes in BARCODE_PRESETS:
+        barcode_design = str(files('longbarcodeqc').joinpath(BARCODE_PRESETS[args.barcodes]))
+
     if args.plasmid == parser.DEFAULT_PLASMID: # (default option)
         # set plasmid path to default a.31 plasmid
         args.plasmid = str(files('longbarcodeqc.plasmids').joinpath('a.31.fa'))

@@ -33,4 +33,4 @@ packages = ["longbarcodeqc"]
 LongBarcodeQC = "longbarcodeqc.main:main"
 
 [tool.setuptools.package-data]
-"longbarcodeqc" = ["plasmids/**", "template/**"]
+"longbarcodeqc" = ["plasmids/**", "template/**", "barcodes/**"]

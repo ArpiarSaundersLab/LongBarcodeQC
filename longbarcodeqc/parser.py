@@ -33,9 +33,11 @@ def getArgs() -> tuple[argparse.Namespace, argparse.ArgumentParser]:
                         type=str,
                         default=DEFAULT_PLASMID)
     arg_parser.add_argument('-b', '--barcodes',
-                        help='Path to barcode fasta file. '
-                        'One barcode per line. Fasta headers must be '
-                        'unique names.',
+                        help='Barcode FASTA file. Use a preset keyword or provide a path to a '
+                        'custom FASTA file. Preset options: EV (Expression Vector), '
+                        'AP (Assembly Plasmid), TS (TritSeq). '
+                        'Custom file: path to a FASTA file with one barcode per entry; '
+                        'headers must be unique.',
                         type=str,
                         required=True)
     arg_parser.add_argument('-l', '--insert_length',
@@ -121,8 +123,13 @@ def validateArgs(args: argparse.Namespace, arg_parser: argparse.ArgumentParser) 
         arg_parser.error('No plasmid was provided. The default a.31 plasmid cannot be combined with '
                          'the a.31 option. Only use the a.31 option to annotate it as contamination.')
 
-    if not os.path.exists(barcode_path):  # check if barcode path exists
-        arg_parser.error(f'Barcode fasta file does not exist: {barcode_path}')
+    BARCODE_PRESETS = {'EV', 'AP', 'TS'}
+    if args.barcodes not in BARCODE_PRESETS:
+        if not os.path.exists(barcode_path):
+            arg_parser.error(
+                f'--barcodes must be a preset (EV, AP, TS) or a valid file path. '
+                f'File not found: {barcode_path}'
+            )
 
     # verify restriction enzyme path and format
     if args.enzymes:

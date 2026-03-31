@@ -142,12 +142,13 @@ def barcode_scores(
         ('RE_KpnI',  'GGTACC'),
         ('RE_PciI',  'ACATGT'),
         ('RE_SpeI',  'ACTAGT'),
-        ('RE_PlutI', 'GGCGCC'),
         ('RE_NotI',  'GCGGCCGC'),
-        ('RE_TspmI', 'CCCGGG'),
-        ('RE_MreI',  'CGCCGGCG'),
-        ('RE_MauBI', 'CGCGCGCG'),
+        ('RE_AsiSI',  'GCGATCGC'),
         ('RE_BsiWI', 'CGTACG'),
+        ('RE_MreI',  'CGCCGGCG'),
+        ('RE_FseI', 'GGCCGGCC'),
+        ('RE_Sbf1', 'CCTGCAGG'),
+        ('RE_MauBI', 'CGCGCGCG')
     ]
 
     if enzymes:
