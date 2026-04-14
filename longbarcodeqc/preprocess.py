@@ -93,7 +93,7 @@ def mm2_align(outpath: str, trimmed_reads_path: str, a31: bool) -> Dict[str, int
         # a.31 ref:
         output_a31_aligned = f'{outpath}/{exp_name}.a31.aligned.fa'
         a31_ref_fa = files('longbarcodeqc.plasmids').joinpath('a.31.fa')
-        a31_ref_string = 'a.31_pUC57-Mini_STICR_6_v2_circ'
+        a31_ref_string = 'AP-Amp'
         os.system(f'cat {a31_ref_fa} >>{outpath}/.tmp.ref.fa')
 
     # Extract plasmid reference name from fasta, for pulling out plasmid reads from the combined alignment
