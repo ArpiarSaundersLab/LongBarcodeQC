@@ -31,11 +31,12 @@ def main(args=None):
     if args.barcodes in BARCODE_PRESETS:
         barcode_design = str(files('longbarcodeqc').joinpath(BARCODE_PRESETS[args.barcodes]))
 
+    is_default_plasmid = (args.plasmid == parser.DEFAULT_PLASMID) and not args.SBARRO
     if args.plasmid == parser.DEFAULT_PLASMID: # (default option)
-        # set plasmid path to default a.31 plasmid
-        args.plasmid = str(files('longbarcodeqc.plasmids').joinpath('a.31.fa'))
-        # set flanks path to default a.31 flanks
-        args.flanks = str(files('longbarcodeqc.plasmids').joinpath('a.31_flanks.fa'))
+        # set plasmid path to default AP-Amp plasmid
+        args.plasmid = str(files('longbarcodeqc.plasmids').joinpath('AP-Amp.fa'))
+        # set flanks path to default AP flanks
+        args.flanks = str(files('longbarcodeqc.plasmids').joinpath('AP_flanks.fa'))
 
     read_file = f'{output_dir}/{exp_name}.fastq'
     preprocess.rename_reads(read_dir, read_file, exp_name)
@@ -49,12 +50,12 @@ def main(args=None):
     print(f'Preparing reference plasmid ({ref_len} bp)...')
 
     # map reads to plasmid with minimap2
-    summary_align_counts = preprocess.mm2_align(output_dir, read_file, args.a31)
+    summary_align_counts = preprocess.mm2_align(output_dir, read_file, args.AP, is_default_plasmid)
 
     # generate barcode alignment & read stats written to csv output
     align = barcode_aligner.barcode_scores(output_dir, barcode_design, args.flanks,
-                                           args.insert_length, args.enzymes, 
-                                           args.a31, args.SBARRO)
+                                           args.insert_length, args.enzymes,
+                                           args.AP, is_default_plasmid, args.SBARRO)
     # output verbose parquet with every barcode alignment score per read (can be large)
     if args.full_output:
         print('\nWriting full barcode alignment file...')

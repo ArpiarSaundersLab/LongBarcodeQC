@@ -2,7 +2,7 @@ import argparse
 import sys
 import os
 
-DEFAULT_PLASMID = 'a31'
+DEFAULT_PLASMID = 'AP'
 
 def getArgs() -> tuple[argparse.Namespace, argparse.ArgumentParser]:
     """Parse and return command-line arguments for barcodezy.
@@ -25,7 +25,7 @@ def getArgs() -> tuple[argparse.Namespace, argparse.ArgumentParser]:
                         required=True)
     arg_parser.add_argument('-p', '--plasmid',
                         help='Path to plasmid fasta file. '
-                        'The default plasmid is a.31. If using another '
+                        'The default plasmid is AP-Amp. If using another '
                         'plasmid, use this option with the path to a fasta '
                         'file containing your plasmid. For best results, '
                         'concatenate the circular plasmid sequence to itself '
@@ -56,10 +56,10 @@ def getArgs() -> tuple[argparse.Namespace, argparse.ArgumentParser]:
                         'sequences. Define one site per line, with the name and sequence '
                         'separated by comma.',
                         type=str)
-    arg_parser.add_argument('-a', '--a31',
-                        help='Option to add a31 alignment. Mainly used '
-                        'to detect contamination from a31 plasmid. This will flag a31 reads '
-                        'in the final output and score barcodes against them.',
+    arg_parser.add_argument('-a', '--AP',
+                        help='Option to add AP-Amp and AP-Kan alignment. Mainly used '
+                        'to detect contamination from assembly plasmid reads. This will flag '
+                        'AP reads in the final output and score barcodes against them.',
                         action='store_true')
     arg_parser.add_argument('-S', '--SBARRO',
                         help='Use this option if the plasmid is part of the SBARRO system '
@@ -93,7 +93,7 @@ def validateArgs(args: argparse.Namespace, arg_parser: argparse.ArgumentParser) 
     """Validate arguments and filesystem state.
 
     - Ensures input/output paths exist in expected forms
-    - Validates combinations of `--plasmid`, `--a31`, and `--SBARRO`
+    - Validates combinations of `--plasmid`, `--AP`, and `--SBARRO`
     - Checks barcode and restriction enzyme files if provided
     """
     input_path = os.path.normpath(args.input)
@@ -113,15 +113,15 @@ def validateArgs(args: argparse.Namespace, arg_parser: argparse.ArgumentParser) 
         arg_parser.error('Output path is not empty. Remove contents or choose a different output name.')
 
     # verify reference options
-    if args.plasmid != DEFAULT_PLASMID:  # if not a31, user provided a plasmid path
+    if args.plasmid != DEFAULT_PLASMID:  # if not AP, user provided a plasmid path
         if not os.path.exists(os.path.normpath(args.plasmid)):
             arg_parser.error(f'Plasmid fasta file does not exist: {args.plasmid}')
         if args.SBARRO:  # don't combine SBARRO and custom plasmid options
             arg_parser.error('SBARRO option cannot be used with a custom plasmid.')
-    # cannot combine default a.31 plasmid and a.31 option (unless using SBARRO option)
-    elif args.a31 and not args.SBARRO:
-        arg_parser.error('No plasmid was provided. The default a.31 plasmid cannot be combined with '
-                         'the a.31 option. Only use the a.31 option to annotate it as contamination.')
+    # cannot combine default AP-Amp plasmid and -a option (unless using SBARRO option)
+    elif args.AP and not args.SBARRO:
+        arg_parser.error('No plasmid was provided. The default AP-Amp plasmid cannot be combined with '
+                         'the -a/--AP option. Only use the -a option to annotate AP reads as contamination.')
 
     BARCODE_PRESETS = {'EV', 'AP', 'TS'}
     if args.barcodes not in BARCODE_PRESETS:
@@ -150,7 +150,7 @@ def validateArgs(args: argparse.Namespace, arg_parser: argparse.ArgumentParser) 
     if not args.SBARRO and args.plasmid != DEFAULT_PLASMID:
         if not args.flanks:
             arg_parser.error('Upstream and downstream MCS flanking regions must be provided (fasta), '
-                             'unless using default a.31 plasmid or SBARRO option.')
+                             'unless using default AP-Amp plasmid or SBARRO option.')
         if not os.path.exists(os.path.normpath(args.flanks)):
             arg_parser.error(f'Flanks fasta file does not exist: {args.flanks}')
 

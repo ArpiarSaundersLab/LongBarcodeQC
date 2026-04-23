@@ -42,24 +42,30 @@ def z_score_barcode_calling(reads_df: pd.DataFrame, z_thresh: float | None) -> T
     # Fill NaNs (if any) with 0
     z_scores = z_scores.fillna(0)
 
+    # Target reads mask: 'plasmid' for custom plasmid, or all non-ecoli/non-failed for default AP case
+    if 'plasmid' in reads_df.read_type.values:
+        target_mask = reads_df.read_type == 'plasmid'
+    else:
+        target_mask = ~reads_df.read_type.str.endswith('_failed_anchor') & (reads_df.read_type != 'ecoli')
+
     # Use minimum z-score as threshold for calling insertions if not provided
     if z_thresh is None:
-        z_thresh = abs(min(z_scores[reads_df.read_type == 'plasmid'].values.flatten()))
+        z_thresh = abs(min(z_scores[target_mask].values.flatten()))
 
     # z-score distribution plots (linear and log scaled)
     fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(10, 4))
-    axes[0].hist(z_scores[reads_df.read_type == 'plasmid'].values.flatten(), bins=35)
+    axes[0].hist(z_scores[target_mask].values.flatten(), bins=35)
     axes[0].set_xlabel('z-score')
     axes[0].set_title('z-score distribution (linear)')
-    axes[0].axvline(z_thresh, color='red', linestyle='--', 
+    axes[0].axvline(z_thresh, color='red', linestyle='--',
                     label='z-score threshold\nfor calling barcodes')
     axes[0].legend()
 
-    axes[1].hist(z_scores[reads_df.read_type == 'plasmid'].values.flatten(), bins=35)
+    axes[1].hist(z_scores[target_mask].values.flatten(), bins=35)
     axes[1].set_xlabel('z-score')
     axes[1].set_title('z-score distribution (log scale)')
     axes[1].set_yscale('log')
-    axes[1].axvline(z_thresh, color='red', linestyle='--', 
+    axes[1].axvline(z_thresh, color='red', linestyle='--',
                     label='z-score threshold\nfor calling barcodes')
     axes[1].legend()
 
@@ -110,10 +116,9 @@ def read_length_hist(
 ) -> str:
     """Generate a read length histogram and return it as an SVG string."""
     df_nofailed = summary_df[
-        (summary_df.read_type != 'plasmid_failed_anchor') &
-        (summary_df.read_type != 'a31_failed_anchor')
+        ~summary_df.read_type.str.endswith('_failed_anchor')
         ].copy()
-    
+
     if hue_group_col == 'insertions':
     # add insertion group column (categorizes into max insertions vs < max insertions)
         num_pos = len([col for col in df_nofailed.columns if col.endswith('_1st_z_score')])
@@ -165,8 +170,7 @@ def MCS_length_hist(
 ) -> str:
     """Generate an MCS cassette length histogram and return it as an SVG string."""
     df_nofailed = summary_df[
-        (summary_df.read_type != 'plasmid_failed_anchor') &
-        (summary_df.read_type != 'a31_failed_anchor') &
+        ~summary_df.read_type.str.endswith('_failed_anchor') &
         (summary_df.read_type != 'ecoli')
         ].copy()
     
@@ -259,8 +263,7 @@ def report_gen(
     # restriction site % table
     enz_names = summary.loc[:, summary.columns.str.contains('RE_')].columns
     df_no_ecoli_nofailed = summary[
-        (summary.read_type != 'plasmid_failed_anchor') &
-        (summary.read_type != 'a31_failed_anchor') &
+        ~summary.read_type.str.endswith('_failed_anchor') &
         (summary.read_type != 'ecoli')
         ].copy()
     # avoid division by zero if no plasmid reads in expected range
@@ -269,8 +272,14 @@ def report_gen(
         enz_all = ['N/A' for _ in enz_names]
     else:
         enz_all = [f'{100*sum(df_no_ecoli_nofailed[x])/df_no_ecoli_nofailed.shape[0]:.2f}%' for x in enz_names]
+    # In default case (AP-Amp/AP-Kan), all non-ecoli/non-failed reads are the target.
+    # In custom plasmid case, filter to 'plasmid' read_type only.
+    if 'plasmid' in df_no_ecoli_nofailed.read_type.values:
+        target_mask = df_no_ecoli_nofailed.read_type == 'plasmid'
+    else:
+        target_mask = pd.Series(True, index=df_no_ecoli_nofailed.index)
     df_plasmid_ranged = df_no_ecoli_nofailed[
-        (df_no_ecoli_nofailed.read_type == 'plasmid') &
+        target_mask &
         (df_no_ecoli_nofailed.seq_len > int(ref_len*0.85)) &
         (df_no_ecoli_nofailed.seq_len < int(ref_len*1.15))
         ]

@@ -125,7 +125,8 @@ def barcode_scores(
     flanks_path: Optional[str],
     insert_len: int,
     enzymes: Optional[str],
-    a31: bool,
+    ap_flag: bool,
+    is_default_plasmid: bool,
     SBARRO: bool,
 ) -> pd.DataFrame:
     """Compute barcode alignment scores and read statistics.
@@ -164,24 +165,39 @@ def barcode_scores(
     user_matrix = parasail.matrix_create("ACGT", match=2, mismatch=-1)
 
     # process target plasmid reads
-    print('Processing target plasmid reads...')
+    target_read_type = 'AP-Amp' if is_default_plasmid else 'plasmid'
+    print(f'Processing {target_read_type} reads...')
     long_reads = parasail.sequences_from_file(f'{outpath}/{exp_name}.aligned.fa.gz')
     rows = _process_batch(
-        long_reads, 'plasmid', bc_name_seq, restriction_sites,
+        long_reads, target_read_type, bc_name_seq, restriction_sites,
         left_flank, right_flank, mcs_flank_len, user_matrix,
-        desc='Aligning barcodes (target plasmid)',
+        desc=f'Aligning barcodes ({target_read_type})',
     )
 
-    # process a31 reads if requested
-    if a31:
-        print('Processing a.31 reads...')
-        a31_flanks_path = str(files('longbarcodeqc.plasmids').joinpath('a.31_flanks.fa'))
-        a31_left, a31_right, a31_mcs_len = _load_flanks(a31_flanks_path, insert_len)
-        long_reads_a31 = parasail.sequences_from_file(f'{outpath}/{exp_name}.a31.aligned.fa.gz')
+    # process AP reads if applicable
+    add_ap_kan = is_default_plasmid or ap_flag
+    add_ap_amp = ap_flag
+
+    if add_ap_kan or add_ap_amp:
+        ap_flanks_path = str(files('longbarcodeqc.plasmids').joinpath('AP_flanks.fa'))
+        ap_left, ap_right, ap_mcs_len = _load_flanks(ap_flanks_path, insert_len)
+
+    if add_ap_kan:
+        print('Processing AP-Kan reads...')
+        long_reads_ap_kan = parasail.sequences_from_file(f'{outpath}/{exp_name}.AP-Kan.aligned.fa.gz')
         rows += _process_batch(
-            long_reads_a31, 'a31', bc_name_seq, restriction_sites,
-            a31_left, a31_right, a31_mcs_len, user_matrix,
-            desc='Aligning barcodes (a31)',
+            long_reads_ap_kan, 'AP-Kan', bc_name_seq, restriction_sites,
+            ap_left, ap_right, ap_mcs_len, user_matrix,
+            desc='Aligning barcodes (AP-Kan)',
+        )
+
+    if add_ap_amp:
+        print('Processing AP-Amp reads...')
+        long_reads_ap_amp = parasail.sequences_from_file(f'{outpath}/{exp_name}.AP-Amp.aligned.fa.gz')
+        rows += _process_batch(
+            long_reads_ap_amp, 'AP-Amp', bc_name_seq, restriction_sites,
+            ap_left, ap_right, ap_mcs_len, user_matrix,
+            desc='Aligning barcodes (AP-Amp)',
         )
 
     # process e. coli reads (no barcode alignment needed)
