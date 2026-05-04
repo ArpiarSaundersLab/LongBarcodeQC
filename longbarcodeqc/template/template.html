@@ -177,6 +177,11 @@
                 </table>
             </div>
 
+            <div class="subtab" id="global-view-switch">
+                <button class="subtablinks active" onclick="setGlobalView(event, 'read')">Read length</button>
+                <button class="subtablinks" onclick="setGlobalView(event, 'mcs')">MCS length</button>
+            </div>
+
             <div class="tab">
                 {% for name in rs_plot_names %}
                 <button class="tablinks" onclick="openTab(event, 'tab{{ loop.index }}')" {% if loop.first %}class="active"{% endif %}>
@@ -184,13 +189,9 @@
                 </button>
                 {% endfor %}
             </div>
-            
+
             {% for pair in rs_plots %}
             <div id="tab{{ loop.index }}" class="tabcontent {% if loop.first %}active{% endif %}">
-                <div class="subtab">
-                    <button class="subtablinks active" onclick="openSubTab(event, 'subtab{{ loop.index }}_read', {{ loop.index }})">Read length</button>
-                    <button class="subtablinks" onclick="openSubTab(event, 'subtab{{ loop.index }}_mcs', {{ loop.index }})">MCS length</button>
-                </div>
                 <div id="subtab{{ loop.index }}_read" class="subtabcontent active">
                     <div class="svg-container">{{ pair.read | safe }}</div>
                 </div>
@@ -203,42 +204,50 @@
     </div>
 
     <script>
-        function openSubTab(evt, subTabName, parentIdx) {
-            var parent = document.getElementById('tab' + parentIdx);
-            var subtabcontent = parent.getElementsByClassName('subtabcontent');
-            for (var i = 0; i < subtabcontent.length; i++) {
-                subtabcontent[i].style.display = 'none';
-                subtabcontent[i].classList.remove('active');
-            }
-            var subtablinks = parent.getElementsByClassName('subtablinks');
-            for (var i = 0; i < subtablinks.length; i++) {
-                subtablinks[i].classList.remove('active');
-            }
-            document.getElementById(subTabName).style.display = 'block';
-            document.getElementById(subTabName).classList.add('active');
+        var currentView = 'read';
+
+        function setGlobalView(evt, view) {
+            currentView = view;
+            var btns = document.querySelectorAll('#global-view-switch .subtablinks');
+            btns.forEach(function(btn) { btn.classList.remove('active'); });
             evt.currentTarget.classList.add('active');
+            var activeTab = document.querySelector('.tabcontent.active');
+            if (activeTab) {
+                var subtabcontent = activeTab.getElementsByClassName('subtabcontent');
+                for (var i = 0; i < subtabcontent.length; i++) {
+                    subtabcontent[i].classList.remove('active');
+                }
+                var target = activeTab.querySelector('[id$="_' + view + '"]');
+                if (target) target.classList.add('active');
+            }
         }
 
         function openTab(evt, tabName) {
             var i, tabcontent, tablinks;
-            
-            // Hide all tab contents
+
             tabcontent = document.getElementsByClassName("tabcontent");
             for (i = 0; i < tabcontent.length; i++) {
                 tabcontent[i].style.display = "none";
                 tabcontent[i].classList.remove("active");
             }
-        
-            // Remove active class from all buttons
+
             tablinks = document.getElementsByClassName("tablinks");
             for (i = 0; i < tablinks.length; i++) {
                 tablinks[i].classList.remove("active");
             }
-        
-            // Show the selected tab and mark the button as active
-            document.getElementById(tabName).style.display = "block";
-            document.getElementById(tabName).classList.add("active");
+
+            var tab = document.getElementById(tabName);
+            tab.style.display = "block";
+            tab.classList.add("active");
             evt.currentTarget.classList.add("active");
+
+            // Apply global view state to newly shown tab
+            var subtabcontent = tab.getElementsByClassName('subtabcontent');
+            for (i = 0; i < subtabcontent.length; i++) {
+                subtabcontent[i].classList.remove('active');
+            }
+            var target = tab.querySelector('[id$="_' + currentView + '"]');
+            if (target) target.classList.add('active');
         }
     </script>
 

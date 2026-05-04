@@ -128,8 +128,7 @@ def mm2_align(outpath: str, trimmed_reads_path: str, ap_flag: bool, is_default_p
         os.system(f'samtools sort {output_bam_file} >{output_sorted_bam_file} 2>>{outpath}/Log.txt')
         os.system(f'samtools index {output_sorted_bam_file}')
         # rm tmp files
-        #os.system(f'rm {output_bam_file} && rm {outpath}/.tmp.ref.fa && rm {plasmid_path}')
-        os.system(f'rm {output_bam_file} && rm {plasmid_path}')
+        os.system(f'rm {output_bam_file} && rm {outpath}/.tmp.ref.fa && rm {plasmid_path}')
 
         print(f'Alignment finished. Flipping reverse reads and writing fasta outputs')
 
