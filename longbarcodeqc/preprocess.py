@@ -176,13 +176,13 @@ def mm2_align(outpath: str, trimmed_reads_path: str, ap_flag: bool, is_default_p
         summary_dict = {}
         # Label target as 'AP-Amp' when using default plasmid, otherwise 'Target plasmid'
         target_label = 'AP-Amp' if is_default_plasmid else 'Target plasmid'
-        summary_dict[target_label] = int(os.popen(f'samtools view -F 4 -F 2048 {output_sorted_bam_file} \'{ref_name}\' | \
+        summary_dict[target_label] = int(os.popen(f'samtools view -F 4 -F 2048 -q 2 {output_sorted_bam_file} \'{ref_name}\' | \
                                                     wc -l').read())
         if add_ap_kan:
-            summary_dict['AP-Kan'] = int(os.popen(f'samtools view -F 4 -F 2048 {output_sorted_bam_file} \'{ap_kan_ref_string}\' | \
+            summary_dict['AP-Kan'] = int(os.popen(f'samtools view -F 4 -F 2048 -q 2 {output_sorted_bam_file} \'{ap_kan_ref_string}\' | \
                                                         wc -l').read())
         if add_ap_amp:
-            summary_dict['AP-Amp'] = int(os.popen(f'samtools view -F 4 -F 2048 {output_sorted_bam_file} \'{ap_amp_ref_string}\' | \
+            summary_dict['AP-Amp'] = int(os.popen(f'samtools view -F 4 -F 2048 -q 2 {output_sorted_bam_file} \'{ap_amp_ref_string}\' | \
                                                         wc -l').read())
         summary_dict['Ambiguous alignments'] = int(os.popen(f'samtools view -F 4 -F 2048 {output_sorted_bam_file} | \
                                                     awk \'$5 <= 1\' | wc -l').read())
