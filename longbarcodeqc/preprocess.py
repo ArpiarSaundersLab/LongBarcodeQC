@@ -137,27 +137,26 @@ def mm2_align(outpath: str, trimmed_reads_path: str, ap_flag: bool, is_default_p
         ## 2048: supplementary alignments
         ## 4:    unmapped
         ## 16:   reverse strand
-        ## -q 2: exclude MAPQ <= 1 (ambiguous alignments)
-        os.system(f'samtools view -F 2048 -F 4 -F 16 -q 2 -h {output_sorted_bam_file} \'{ref_name}\' | \
+        os.system(f'samtools view -F 2048 -F 4 -F 16 -h {output_sorted_bam_file} \'{ref_name}\' | \
                   samtools fasta - >{output_fa_aligned} 2>>{outpath}/Log.txt')
         # reverse complement negative strand alignments and append to same file
-        os.system(f'samtools view -F 2048 -f 16 -q 2 -h {output_sorted_bam_file} \'{ref_name}\' | \
+        os.system(f'samtools view -F 2048 -f 16 -h {output_sorted_bam_file} \'{ref_name}\' | \
                   samtools fasta - 2>>{outpath}/Log.txt | {rev_complement_cmd} >>{output_fa_aligned}')
         os.system(f'gzip {output_fa_aligned}') # compress into .fa.gz
 
         # write AP-Kan reads to file
         if add_ap_kan:
-            os.system(f'samtools view -F 2048 -F 4 -F 16 -q 2 -h {output_sorted_bam_file} \'{ap_kan_ref_string}\' | \
+            os.system(f'samtools view -F 2048 -F 4 -F 16 -h {output_sorted_bam_file} \'{ap_kan_ref_string}\' | \
                       samtools fasta - >{output_ap_kan_aligned} 2>>{outpath}/Log.txt')
-            os.system(f'samtools view -F 2048 -f 16 -q 2 -h {output_sorted_bam_file} \'{ap_kan_ref_string}\' | \
+            os.system(f'samtools view -F 2048 -f 16 -h {output_sorted_bam_file} \'{ap_kan_ref_string}\' | \
                       samtools fasta - 2>>{outpath}/Log.txt | {rev_complement_cmd} >>{output_ap_kan_aligned}')
             os.system(f'gzip {output_ap_kan_aligned}')
 
         # write AP-Amp reads to file (only when -a flag with custom/SBARRO plasmid)
         if add_ap_amp:
-            os.system(f'samtools view -F 2048 -F 4 -F 16 -q 2 -h {output_sorted_bam_file} \'{ap_amp_ref_string}\' | \
+            os.system(f'samtools view -F 2048 -F 4 -F 16 -h {output_sorted_bam_file} \'{ap_amp_ref_string}\' | \
                       samtools fasta - >{output_ap_amp_aligned} 2>>{outpath}/Log.txt')
-            os.system(f'samtools view -F 2048 -f 16 -q 2 -h {output_sorted_bam_file} \'{ap_amp_ref_string}\' | \
+            os.system(f'samtools view -F 2048 -f 16 -h {output_sorted_bam_file} \'{ap_amp_ref_string}\' | \
                       samtools fasta - 2>>{outpath}/Log.txt | {rev_complement_cmd} >>{output_ap_amp_aligned}')
             os.system(f'gzip {output_ap_amp_aligned}')
 
@@ -174,18 +173,15 @@ def mm2_align(outpath: str, trimmed_reads_path: str, ap_flag: bool, is_default_p
 
         # store counts for aligned reads, unaligned reads, ecoli reads
         summary_dict = {}
-        # Label target as 'AP-Amp' when using default plasmid, otherwise 'Target plasmid'
         target_label = 'AP-Amp' if is_default_plasmid else 'Target plasmid'
-        summary_dict[target_label] = int(os.popen(f'samtools view -F 4 -F 2048 -q 2 {output_sorted_bam_file} \'{ref_name}\' | \
+        summary_dict[target_label] = int(os.popen(f'samtools view -F 4 -F 2048 {output_sorted_bam_file} \'{ref_name}\' | \
                                                     wc -l').read())
         if add_ap_kan:
-            summary_dict['AP-Kan'] = int(os.popen(f'samtools view -F 4 -F 2048 -q 2 {output_sorted_bam_file} \'{ap_kan_ref_string}\' | \
+            summary_dict['AP-Kan'] = int(os.popen(f'samtools view -F 4 -F 2048 {output_sorted_bam_file} \'{ap_kan_ref_string}\' | \
                                                         wc -l').read())
         if add_ap_amp:
-            summary_dict['AP-Amp'] = int(os.popen(f'samtools view -F 4 -F 2048 -q 2 {output_sorted_bam_file} \'{ap_amp_ref_string}\' | \
+            summary_dict['AP-Amp'] = int(os.popen(f'samtools view -F 4 -F 2048 {output_sorted_bam_file} \'{ap_amp_ref_string}\' | \
                                                         wc -l').read())
-        summary_dict['Ambiguous alignments'] = int(os.popen(f'samtools view -F 4 -F 2048 {output_sorted_bam_file} | \
-                                                    awk \'$5 <= 1\' | wc -l').read())
         summary_dict['Unaligned'] = int(os.popen(f'samtools view -f 4 {output_sorted_bam_file} | wc -l').read())
         summary_dict['E. coli'] = int(os.popen(f'samtools view -F 4 -F 2048 {output_sorted_bam_file} | \
                                                     awk \'$3 ~ /{ecoli_ref_string}/\' | wc -l').read())
@@ -196,6 +192,5 @@ def mm2_align(outpath: str, trimmed_reads_path: str, ap_flag: bool, is_default_p
         if add_ap_kan: print(f'{summary_dict["AP-Kan"]} AP-Kan reads aligned')
         if add_ap_amp: print(f'{summary_dict["AP-Amp"]} AP-Amp reads aligned')
         print(f'{summary_dict["E. coli"]} bacterial reads aligned')
-        print(f'{summary_dict["Ambiguous alignments"]} ambiguous alignments (MAPQ <= 1)')
         print(f'{summary_dict["Unaligned"]} unaligned reads\n')
         return summary_dict
