@@ -49,10 +49,8 @@ def generate_ref(outpath: str, insert_len: int) -> int:
     with open(ref_path, 'w') as fh:
         fh.write(f'>SBARRO\n{ref_seq}\n')
 
-    # return ref length for downstream use in output plots
-    return len(upstream_MCS + 'N'*insert_len + downstream_MCS)
 
-def process_ref(outpath: str, plasmid_path: str, insert_len: int) -> int:
+def process_ref(outpath: str, plasmid_path: str) -> None:
     # to hold full ref sequence before concatenation
     exp_name = os.path.basename(outpath)
     full_seq = ''
@@ -67,8 +65,6 @@ def process_ref(outpath: str, plasmid_path: str, insert_len: int) -> int:
             full_seq = ''.join(full_seq.split())
             full_seq_concat = 2 * full_seq
             out.write(full_seq_concat.strip() + '\n')
-    # return ref length for downstream use in output plots
-    return len(full_seq) + insert_len
 
 def _append_doubled_ref(ref_fa_path: str, dest_path: str) -> None:
     """Read a single-record FASTA, concatenate the sequence to itself, and append to dest."""

@@ -41,13 +41,11 @@ def main(args=None):
     read_file = f'{output_dir}/{exp_name}.fastq'
     preprocess.rename_reads(read_dir, read_file, exp_name)
 
-    # generate ref if SBARRO (also save ref_len for html plotting)
     if args.SBARRO:
-        ref_len = preprocess.generate_ref(output_dir, args.insert_length)
-    # else open ref fasta and concatenate to mimic circularity
+        preprocess.generate_ref(output_dir, args.insert_length)
     else:
-        ref_len = preprocess.process_ref(output_dir, args.plasmid, args.insert_length)
-    print(f'Preparing reference plasmid ({ref_len} bp)...')
+        preprocess.process_ref(output_dir, args.plasmid)
+    print('Preparing reference plasmid...')
 
     # map reads to plasmid with minimap2
     summary_align_counts = preprocess.mm2_align(output_dir, read_file, args.AP, is_default_plasmid)
@@ -67,7 +65,6 @@ def main(args=None):
         output_dir,
         align,
         summary_align_counts,
-        ref_len,
         args.zscore,
         args.expected_insertions,
     )

@@ -115,9 +115,12 @@ def read_length_hist(
     expected_insertions: int | None,
 ) -> str:
     """Generate a read length histogram and return it as an SVG string."""
-    df_nofailed = summary_df[
-        ~summary_df.read_type.str.endswith('_failed_anchor')
-        ].copy()
+    if hue_group_col == 'read_type':
+        df_nofailed = summary_df.copy()
+    else:
+        df_nofailed = summary_df[
+            ~summary_df.read_type.str.endswith('_failed_anchor')
+            ].copy()
 
     if hue_group_col == 'insertions':
     # add insertion group column (categorizes into max insertions vs < max insertions)
@@ -219,7 +222,6 @@ def report_gen(
     outpath: str,
     reads_df: pd.DataFrame,
     alignment_counts: Dict[str, int],
-    ref_len: int,
     z_thresh: float | None,
     expected_insertions: int | None,
 ) -> pd.DataFrame:
@@ -239,9 +241,10 @@ def report_gen(
     # summary table output
     summary, z_plot = z_score_barcode_calling(reads, z_thresh)
 
-    # get upper x lim for read length histograms
-    max_len = math.ceil(ref_len / 1000) * 1000
-    max_len = max_len + math.ceil(max_len*0.1 / 1000) * 1000 # add ~10% buffer to max_len
+    # get upper x lim for read length histograms from actual read length distribution
+    p99 = summary.seq_len.quantile(0.95)
+    max_len = math.ceil(p99 / 1000) * 1000
+    max_len = max_len + math.ceil(max_len * 0.1 / 1000) * 1000  # add ~10% buffer
 
     read_type_hist = read_length_hist(summary, 'read_type', max_len, 
                                       'Read type', expected_insertions)
@@ -260,39 +263,20 @@ def report_gen(
         rs_mcs_plots.append(MCS_length_hist(summary, rs,
                                             f'{rs[3:]} site detection (MCS length)', expected_insertions))
     
-    # restriction site % table
+    # restriction site % table — based on reads with successful MCS anchoring only
     enz_names = summary.loc[:, summary.columns.str.contains('RE_')].columns
-    df_no_ecoli_nofailed = summary[
+    df_mcs_anchored = summary[
         ~summary.read_type.str.endswith('_failed_anchor') &
         (summary.read_type != 'ecoli')
         ].copy()
-    # avoid division by zero if no plasmid reads in expected range
-    if df_no_ecoli_nofailed.shape[0] == 0:
-        print('Warning: No non-bacterial reads found.')
-        enz_all = ['N/A' for _ in enz_names]
+    if df_mcs_anchored.shape[0] == 0:
+        print('Warning: No reads with successful MCS anchoring found.')
+        enz_pct = ['N/A' for _ in enz_names]
     else:
-        enz_all = [f'{100*sum(df_no_ecoli_nofailed[x])/df_no_ecoli_nofailed.shape[0]:.2f}%' for x in enz_names]
-    # In default case (AP-Amp/AP-Kan), all non-ecoli/non-failed reads are the target.
-    # In custom plasmid case, filter to 'plasmid' read_type only.
-    if 'plasmid' in df_no_ecoli_nofailed.read_type.values:
-        target_mask = df_no_ecoli_nofailed.read_type == 'plasmid'
-    else:
-        target_mask = pd.Series(True, index=df_no_ecoli_nofailed.index)
-    df_plasmid_ranged = df_no_ecoli_nofailed[
-        target_mask &
-        (df_no_ecoli_nofailed.seq_len > int(ref_len*0.85)) &
-        (df_no_ecoli_nofailed.seq_len < int(ref_len*1.15))
-        ]
-    # avoid division by zero if no plasmid reads in expected range
-    if df_plasmid_ranged.shape[0] == 0:
-        print('Warning: No plasmid reads found in expected length range.')
-        enz_specific = ['N/A' for _ in enz_names]
-    else:
-        enz_specific = [f'{100*sum(df_plasmid_ranged[x])/df_plasmid_ranged.shape[0]:.2f}%' for x in enz_names] 
+        enz_pct = [f'{100*sum(df_mcs_anchored[x])/df_mcs_anchored.shape[0]:.2f}%' for x in enz_names]
 
     enz_df = pd.DataFrame({'Restriction site': [x[3:] for x in enz_names],
-                           f'% in MCS sequence for plasmid of interest': enz_specific, 
-                           f'% in full length non-bacterial reads': enz_all})
+                           '% detected in MCS': enz_pct})
 
 
     # generate html 
