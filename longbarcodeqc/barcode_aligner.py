@@ -1,6 +1,7 @@
 from typing import Optional
 
 import os
+import re
 
 import numpy as np
 import pandas as pd
@@ -10,6 +11,7 @@ from tqdm import tqdm
 
 _GAP_OPEN = 5
 _GAP_EXTEND = 2
+_LEADING_CIGAR_OP_RE = re.compile(rb'(\d+)([A-Z=])')
 
 
 def _load_flanks(flanks_path: str, insert_len: int) -> tuple[str, str, int]:
@@ -25,16 +27,24 @@ def _load_flanks(flanks_path: str, insert_len: int) -> tuple[str, str, int]:
     return left, right, len(left) + insert_len + len(right)
 
 
-def _find_mcs(seq: str, query_left, query_right, right_flank_len: int) -> tuple[int, int, int, int]:
+def _find_mcs(seq: str, query_left, query_right) -> tuple[int, int, int, int]:
     """Align MCS flanks to a sequence; return (start, end, left_score, right_score)."""
     left_result = parasail.sg_striped_profile_16(query_left, seq, _GAP_OPEN, _GAP_EXTEND)
-    right_result = parasail.sg_striped_profile_16(query_right, seq, _GAP_OPEN, _GAP_EXTEND)
-    return (
-        left_result.end_ref,
-        right_result.end_ref - right_flank_len,
-        left_result.score,
-        right_result.score,
-    )
+    # end_ref is the 0-based index of the last aligned residue (inclusive), so the
+    # MCS starts just after the left flank's last base.
+    start = left_result.end_ref + 1
+
+    # The right flank's start position can't be derived from end_ref by subtracting
+    # the flank's raw length: whenever the read has an indel inside that alignment
+    # window, the number of ref bases consumed differs from the flank length. Use a
+    # traceback alignment and read the leading gap (skipped ref bases before the
+    # flank match begins) directly from the cigar instead.
+    right_result = parasail.sg_trace_striped_profile_16(query_right, seq, _GAP_OPEN, _GAP_EXTEND)
+    cigar_str = right_result.get_cigar().decode
+    leading_op = _LEADING_CIGAR_OP_RE.match(cigar_str)
+    end = int(leading_op.group(1)) if leading_op and leading_op.group(2) == b'D' else 0
+
+    return start, end, left_result.score, right_result.score
 
 
 def _process_read(
@@ -45,7 +55,6 @@ def _process_read(
     query_left,
     query_right,
     mcs_flank_len: int,
-    right_flank_len: int,
     user_matrix,
 ) -> dict:
     """Process a single read; return a row dict of stats."""
@@ -54,12 +63,12 @@ def _process_read(
     seq = longread.seq.decode()
     doubled = seq * 2
 
-    start, end, left_score, right_score = _find_mcs(doubled, query_left, query_right, right_flank_len)
+    start, end, left_score, right_score = _find_mcs(doubled, query_left, query_right)
 
     # fallback: try the middle window of the doubled sequence
     if start >= end or (end - start) > 2 * mcs_flank_len:
         doubled = doubled[read_len // 2: (read_len // 2) + read_len]
-        start, end, left_score, right_score = _find_mcs(doubled, query_left, query_right, right_flank_len)
+        start, end, left_score, right_score = _find_mcs(doubled, query_left, query_right)
 
     failed = start >= end or (end - start) > 2 * mcs_flank_len
     mcs_seq = doubled[start:end]
@@ -104,7 +113,6 @@ def _process_batch(
     """Process a batch of reads; return a list of row dicts."""
     query_left = parasail.profile_create_16(left_flank, user_matrix)
     query_right = parasail.profile_create_16(right_flank, user_matrix)
-    right_flank_len = len(right_flank)
 
     rows = []
     for i, longread in enumerate(tqdm(reads, desc=desc, bar_format="{desc}: |{bar}| {percentage:3.0f}% ({n} reads)", leave=False)):
@@ -113,7 +121,7 @@ def _process_batch(
             continue
         rows.append(_process_read(
             longread, read_type, bc_name_seq, restriction_sites,
-            query_left, query_right, mcs_flank_len, right_flank_len, user_matrix,
+            query_left, query_right, mcs_flank_len, user_matrix,
         ))
     tqdm.write('Done\n')
     return rows
