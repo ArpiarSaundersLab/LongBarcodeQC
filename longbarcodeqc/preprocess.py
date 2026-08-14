@@ -74,7 +74,8 @@ def _append_doubled_ref(ref_fa_path: str, dest_path: str) -> None:
     with open(dest_path, 'a') as out:
         out.write(f'{header}\n{seq}{seq}\n')
 
-def mm2_align(outpath: str, trimmed_reads_path: str, ap_flag: bool, is_default_plasmid: bool) -> Dict[str, int]:
+def mm2_align(outpath: str, trimmed_reads_path: str, ap_flag: bool, is_default_plasmid: bool,
+              reads_removed_in_trimming: int | None = None) -> Dict[str, int]:
     exp_name = os.path.basename(outpath)
     plasmid_path = f'{outpath}/.{exp_name}.concat.ref.fa'
 
@@ -181,6 +182,10 @@ def mm2_align(outpath: str, trimmed_reads_path: str, ap_flag: bool, is_default_p
         summary_dict['Unaligned'] = int(os.popen(f'samtools view -f 4 {output_sorted_bam_file} | wc -l').read())
         summary_dict['E. coli'] = int(os.popen(f'samtools view -F 4 -F 2048 {output_sorted_bam_file} | \
                                                     awk \'$3 ~ /{ecoli_ref_string}/\' | wc -l').read())
+        # reads dropped by adapter trimming never reach the bam, so count them here
+        # to keep the total consistent with the number of input reads
+        if reads_removed_in_trimming is not None:
+            summary_dict['Removed in trimming'] = reads_removed_in_trimming
 
         read_total = sum(summary_dict.values())
         print(f'\nAlignment stats ({read_total} total reads):')
@@ -188,5 +193,7 @@ def mm2_align(outpath: str, trimmed_reads_path: str, ap_flag: bool, is_default_p
         if add_ap_kan: print(f'{summary_dict["AP-Kan"]} AP-Kan reads aligned')
         if add_ap_amp: print(f'{summary_dict["AP-Amp"]} AP-Amp reads aligned')
         print(f'{summary_dict["E. coli"]} bacterial reads aligned')
+        if reads_removed_in_trimming is not None:
+            print(f'{summary_dict["Removed in trimming"]} reads removed in trimming')
         print(f'{summary_dict["Unaligned"]} unaligned reads\n')
         return summary_dict

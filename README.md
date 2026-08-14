@@ -128,10 +128,11 @@ lbqc \
 | `<name>.aligned.fa.gz` | Reads that aligned to the reference plasmid |
 | `<name>.unaligned.fa.gz` | Reads that did not align |
 | `<name>.parquet` | Full barcode alignment scores per read (only with `--full-output`) |
+| `<name>.cutadapt.txt` | cutadapt adapter trimming report (only with `-T`) |
 
 ## Requirements
 
 - Python ≥ 3.10
 - minimap2 (external, see installation above)
 - samtools (external, see installation above)
-- pandas, parasail, matplotlib, seaborn, jinja2, pyarrow, tqdm (installed automatically with pip)
+- pandas, parasail, matplotlib, seaborn, jinja2, pyarrow, tqdm, cutadapt (installed automatically with pip)

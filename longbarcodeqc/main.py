@@ -6,6 +6,7 @@ from longbarcodeqc import analysis
 from longbarcodeqc import barcode_aligner
 from longbarcodeqc import parser
 from longbarcodeqc import preprocess
+from longbarcodeqc import trim
 
 
 def main(args=None):
@@ -41,6 +42,16 @@ def main(args=None):
     read_file = f'{output_dir}/{exp_name}.fastq'
     preprocess.rename_reads(read_dir, read_file, exp_name)
 
+    # trim ONT Rapid adapter before alignment
+    reads_removed_in_trimming = None
+    if args.trim:
+        print('Trimming adapters...')
+        reads_removed_in_trimming = trim.trim_fastq_in_place(
+            read_file,
+            log_file=f'{output_dir}/{exp_name}.cutadapt.txt',
+            threads=3,
+        )
+
     if args.SBARRO:
         preprocess.generate_ref(output_dir, args.insert_length)
     else:
@@ -48,7 +59,8 @@ def main(args=None):
     print('Preparing reference plasmid...')
 
     # map reads to plasmid with minimap2
-    summary_align_counts = preprocess.mm2_align(output_dir, read_file, args.AP, is_default_plasmid)
+    summary_align_counts = preprocess.mm2_align(output_dir, read_file, args.AP, is_default_plasmid,
+                                                reads_removed_in_trimming)
 
     # generate barcode alignment & read stats written to csv output
     align = barcode_aligner.barcode_scores(output_dir, barcode_design, args.flanks,

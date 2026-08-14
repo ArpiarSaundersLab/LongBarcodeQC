@@ -1,4 +1,5 @@
 import argparse
+import shutil
 import sys
 import os
 
@@ -61,6 +62,10 @@ def getArgs() -> tuple[argparse.Namespace, argparse.ArgumentParser]:
                         'to detect contamination from assembly plasmid reads. This will flag '
                         'AP reads in the final output and score barcodes against them.',
                         action='store_true')
+    arg_parser.add_argument('-T', '--trim',
+                        help='Trim the ONT Rapid (RAP) adapter and its leader sequence from '
+                        'reads before alignment, using cutadapt. Off by default.',
+                        action='store_true')
     arg_parser.add_argument('-S', '--SBARRO',
                         help='Use this option if the plasmid is part of the SBARRO system '
                         '(derived from c.18). Reference will be generated with '
@@ -122,6 +127,11 @@ def validateArgs(args: argparse.Namespace, arg_parser: argparse.ArgumentParser) 
     elif args.AP and not args.SBARRO:
         arg_parser.error('No plasmid was provided. The default AP-Amp plasmid cannot be combined with '
                          'the -a/--AP option. Only use the -a option to annotate AP reads as contamination.')
+
+    # verify cutadapt is available when trimming is requested
+    if args.trim and shutil.which('cutadapt') is None:
+        arg_parser.error('cutadapt is required for the -T/--trim option but was not found. '
+                         'Install it with: pip install cutadapt')
 
     BARCODE_PRESETS = {'EV', 'AP', 'TS'}
     if args.barcodes not in BARCODE_PRESETS:
