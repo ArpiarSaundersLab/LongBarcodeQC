@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import os
+import sys
 from datetime import datetime
 from importlib.resources import files
 from longbarcodeqc import analysis
@@ -12,17 +13,23 @@ from longbarcodeqc import trim
 def main(args=None):
     """Entry point for the LongBarcodeQC CLI workflow."""
     start = datetime.now()
-    print(f'\nStarting run...\n{start.strftime("%Y-%m-%d %H:%M:%S")}\n')
 
     args, arg_parser = parser.getArgs()
+    print(f'\nStarting run...\n{start.strftime("%Y-%m-%d %H:%M:%S")}\n')
 
     read_dir = os.path.normpath(args.input)
     barcode_design = os.path.normpath(args.barcodes)
     output_dir = os.path.normpath(args.output)
     exp_name = os.path.basename(output_dir)
 
-    # validate user options
+    # validate user options (this creates the output directory)
     parser.validateArgs(args, arg_parser)
+
+    # record the run details at the top of the log
+    user_command = ' '.join(sys.argv)
+    with open(f'{output_dir}/Log.txt', 'a') as log:
+        log.write(f'Run started: {start.strftime("%Y-%m-%d %H:%M:%S")}\n')
+        log.write(f'User command: {user_command}\n\n')
 
     BARCODE_PRESETS = {
         'EV': 'barcodes/3_1_256_rev/barcodes_tail_only.fa',
@@ -79,6 +86,7 @@ def main(args=None):
         summary_align_counts,
         args.zscore,
         args.expected_insertions,
+        user_command,
     )
     print('Writing summary csv...')
     report.drop(columns=['MCS_seq']).to_csv(f'{output_dir}/{exp_name}_summary.csv.gz')
@@ -87,6 +95,10 @@ def main(args=None):
     end = datetime.now()
     print(end.strftime("%Y-%m-%d %H:%M:%S"))
     print(f'Time elapsed: {end - start}')
+
+    with open(f'{output_dir}/Log.txt', 'a') as log:
+        log.write(f'\nRun finished: {end.strftime("%Y-%m-%d %H:%M:%S")}\n')
+        log.write(f'Time elapsed: {end - start}\n')
 
 
 if __name__ == "__main__":

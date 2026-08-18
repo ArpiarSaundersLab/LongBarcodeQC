@@ -224,6 +224,7 @@ def report_gen(
     alignment_counts: Dict[str, int],
     z_thresh: float | None,
     expected_insertions: int | None,
+    user_command: str,
 ) -> pd.DataFrame:
     """Generate plots and HTML report, returning the summary DataFrame."""
     experiment_name = os.path.basename(outpath)
@@ -296,7 +297,8 @@ def report_gen(
      'headers_enz': enz_df.columns.tolist(),
      'data_enz': enz_df.values.tolist(),
      'z_plot': z_plot,
-     'MCS_insertions': MCS_insertion_hist
+     'MCS_insertions': MCS_insertion_hist,
+     'user_command': user_command
     }
 
     html_report = template.render(context)

@@ -83,6 +83,30 @@
         .subtabcontent.active {
             display: block;
         }
+        .run-command {
+            border-top: 1px solid #ddd;
+            margin-top: 40px;
+            padding-bottom: 40px;
+        }
+        .run-command h6 {
+            color: #777;
+            font-size: 12px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+        .run-command code {
+            display: block;
+            background-color: #f8f8f8;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 12px 14px;
+            color: #333;
+            font-size: 13px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
     </style>
 </head>
 
@@ -202,6 +226,11 @@
             {% endfor %}
         </section>
     </div>
+
+    <footer class="container run-command">
+        <h6>Command</h6>
+        <code>{{ user_command }}</code>
+    </footer>
 
     <script>
         var currentView = 'read';
