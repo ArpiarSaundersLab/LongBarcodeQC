@@ -1,6 +1,7 @@
 import glob
 import gzip
 import os
+import subprocess
 from importlib.resources import files
 from typing import Dict
 
@@ -91,7 +92,7 @@ def mm2_align(outpath: str, trimmed_reads_path: str, ap_flag: bool, is_default_p
     ecoli_fa_aligned = f'{outpath}/{exp_name}.ecoli.aligned.fa'
     # Write tmp combined reference of plasmid + ecoli (for quantifying ecoli reads)
     # (without using combined reference, many reads will "align" to both plasmid and ecoli)
-    os.system(f'cat {ecoli_ref_fa} {plasmid_path} >{outpath}/.tmp.ref.fa')
+    subprocess.run(f'cat {ecoli_ref_fa} {plasmid_path} >{outpath}/.tmp.ref.fa', shell=True)
 
     # AP reference strings (match FASTA headers)
     ap_kan_ref_string = 'AP-Kan'
@@ -119,13 +120,13 @@ def mm2_align(outpath: str, trimmed_reads_path: str, ap_flag: bool, is_default_p
     if not os.path.exists(output_fa_unaligned):
         # align reads with mm2, convert to bam output
         print(f'Aligning {exp_name} using minimap2...')
-        os.system(f'minimap2 -ax map-ont {outpath}/.tmp.ref.fa {trimmed_reads_path} \
-                  --secondary=no -t 3 2>>{outpath}/Log.txt | samtools view -b -h -@ 2 >{output_bam_file}')
+        subprocess.run(f'minimap2 -ax map-ont {outpath}/.tmp.ref.fa {trimmed_reads_path} \
+                  --secondary=no -t 3 2>>{outpath}/Log.txt | samtools view -b -h -@ 2 >{output_bam_file}', shell=True)
         # sort and index bam
-        os.system(f'samtools sort {output_bam_file} >{output_sorted_bam_file} 2>>{outpath}/Log.txt')
-        os.system(f'samtools index {output_sorted_bam_file}')
+        subprocess.run(f'samtools sort {output_bam_file} >{output_sorted_bam_file} 2>>{outpath}/Log.txt', shell=True)
+        subprocess.run(f'samtools index {output_sorted_bam_file}', shell=True)
         # rm tmp files
-        os.system(f'rm {output_bam_file} && rm {outpath}/.tmp.ref.fa && rm {plasmid_path}')
+        subprocess.run(f'rm {output_bam_file} && rm {outpath}/.tmp.ref.fa && rm {plasmid_path}', shell=True)
 
         print(f'Alignment finished. Flipping reverse reads and writing fasta outputs')
 
@@ -134,39 +135,39 @@ def mm2_align(outpath: str, trimmed_reads_path: str, ap_flag: bool, is_default_p
         ## 2048: supplementary alignments
         ## 4:    unmapped
         ## 16:   reverse strand
-        os.system(f'samtools view -F 2048 -F 4 -F 16 -h {output_sorted_bam_file} \'{ref_name}\' | \
-                  samtools fasta - >{output_fa_aligned} 2>>{outpath}/Log.txt')
+        subprocess.run(f'samtools view -F 2048 -F 4 -F 16 -h {output_sorted_bam_file} \'{ref_name}\' | \
+                  samtools fasta - >{output_fa_aligned} 2>>{outpath}/Log.txt', shell=True)
         # reverse complement negative strand alignments and append to same file
-        os.system(f'samtools view -F 2048 -f 16 -h {output_sorted_bam_file} \'{ref_name}\' | \
-                  samtools fasta - 2>>{outpath}/Log.txt | {rev_complement_cmd} >>{output_fa_aligned}')
-        os.system(f'gzip {output_fa_aligned}') # compress into .fa.gz
+        subprocess.run(f'samtools view -F 2048 -f 16 -h {output_sorted_bam_file} \'{ref_name}\' | \
+                  samtools fasta - 2>>{outpath}/Log.txt | {rev_complement_cmd} >>{output_fa_aligned}', shell=True)
+        subprocess.run(f'gzip {output_fa_aligned}', shell=True) # compress into .fa.gz
 
         # write AP-Kan reads to file
         if add_ap_kan:
-            os.system(f'samtools view -F 2048 -F 4 -F 16 -h {output_sorted_bam_file} \'{ap_kan_ref_string}\' | \
-                      samtools fasta - >{output_ap_kan_aligned} 2>>{outpath}/Log.txt')
-            os.system(f'samtools view -F 2048 -f 16 -h {output_sorted_bam_file} \'{ap_kan_ref_string}\' | \
-                      samtools fasta - 2>>{outpath}/Log.txt | {rev_complement_cmd} >>{output_ap_kan_aligned}')
-            os.system(f'gzip {output_ap_kan_aligned}')
+            subprocess.run(f'samtools view -F 2048 -F 4 -F 16 -h {output_sorted_bam_file} \'{ap_kan_ref_string}\' | \
+                      samtools fasta - >{output_ap_kan_aligned} 2>>{outpath}/Log.txt', shell=True)
+            subprocess.run(f'samtools view -F 2048 -f 16 -h {output_sorted_bam_file} \'{ap_kan_ref_string}\' | \
+                      samtools fasta - 2>>{outpath}/Log.txt | {rev_complement_cmd} >>{output_ap_kan_aligned}', shell=True)
+            subprocess.run(f'gzip {output_ap_kan_aligned}', shell=True)
 
         # write AP-Amp reads to file (only when -a flag with custom/SBARRO plasmid)
         if add_ap_amp:
-            os.system(f'samtools view -F 2048 -F 4 -F 16 -h {output_sorted_bam_file} \'{ap_amp_ref_string}\' | \
-                      samtools fasta - >{output_ap_amp_aligned} 2>>{outpath}/Log.txt')
-            os.system(f'samtools view -F 2048 -f 16 -h {output_sorted_bam_file} \'{ap_amp_ref_string}\' | \
-                      samtools fasta - 2>>{outpath}/Log.txt | {rev_complement_cmd} >>{output_ap_amp_aligned}')
-            os.system(f'gzip {output_ap_amp_aligned}')
+            subprocess.run(f'samtools view -F 2048 -F 4 -F 16 -h {output_sorted_bam_file} \'{ap_amp_ref_string}\' | \
+                      samtools fasta - >{output_ap_amp_aligned} 2>>{outpath}/Log.txt', shell=True)
+            subprocess.run(f'samtools view -F 2048 -f 16 -h {output_sorted_bam_file} \'{ap_amp_ref_string}\' | \
+                      samtools fasta - 2>>{outpath}/Log.txt | {rev_complement_cmd} >>{output_ap_amp_aligned}', shell=True)
+            subprocess.run(f'gzip {output_ap_amp_aligned}', shell=True)
 
         # write unaligned reads to file
-        os.system(f'samtools view -f 4 -h {output_sorted_bam_file} | samtools fasta - 2>>{outpath}/Log.txt | \
-                  gzip >{output_fa_unaligned}')
+        subprocess.run(f'samtools view -f 4 -h {output_sorted_bam_file} | samtools fasta - 2>>{outpath}/Log.txt | \
+                  gzip >{output_fa_unaligned}', shell=True)
 
         # write e coli reads to file
-        os.system(f'samtools view -H {output_sorted_bam_file} >{outpath}/.tmp.ecoli.sam')
-        os.system(f'samtools view -F 4 -F 2048 {output_sorted_bam_file} | \
-                    awk \'$3 ~ /{ecoli_ref_string}/\' >>{outpath}/.tmp.ecoli.sam')
-        os.system(f'samtools fasta {outpath}/.tmp.ecoli.sam >{ecoli_fa_aligned} 2>>{outpath}/Log.txt')
-        os.system(f'gzip {ecoli_fa_aligned} && rm {outpath}/.tmp.ecoli.sam')
+        subprocess.run(f'samtools view -H {output_sorted_bam_file} >{outpath}/.tmp.ecoli.sam', shell=True)
+        subprocess.run(f'samtools view -F 4 -F 2048 {output_sorted_bam_file} | \
+                    awk \'$3 ~ /{ecoli_ref_string}/\' >>{outpath}/.tmp.ecoli.sam', shell=True)
+        subprocess.run(f'samtools fasta {outpath}/.tmp.ecoli.sam >{ecoli_fa_aligned} 2>>{outpath}/Log.txt', shell=True)
+        subprocess.run(f'gzip {ecoli_fa_aligned} && rm {outpath}/.tmp.ecoli.sam', shell=True)
 
         # store counts for aligned reads, unaligned reads, ecoli reads
         summary_dict = {}
