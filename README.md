@@ -1,4 +1,4 @@
-<img src="https://raw.githubusercontent.com/goodez/LongBarcodeQC/main/icon.png" alt="LongBarcodeQC" width="400"/>
+<img src="https://raw.githubusercontent.com/ArpiarSaundersLab/LongBarcodeQC/main/icon.png" alt="LongBarcodeQC" width="400"/>
 
 # LongBarcodeQC
 
@@ -16,41 +16,29 @@
 
 ## Installation
 
-LongBarcodeQC requires **Python ≥ 3.10** and two external bioinformatics tools that must be
-installed separately: **minimap2** and **samtools**.
-
-### 1. Install the external tools
-
-```bash
-# conda (macOS/Linux)
-conda install -c bioconda minimap2 samtools
-
-# Homebrew (macOS)
-brew install minimap2 samtools
-
-# apt (Linux)
-sudo apt install minimap2 samtools
-```
-
-### 2. Install LongBarcodeQC
+LongBarcodeQC requires **Python ≥ 3.10** and several external bioinformatics tools
+(minimap2, samtools, parasail, cutadapt). Install them with conda, which provides
+prebuilt binaries for all supported platforms including Apple Silicon and ARM Linux:
 
 ```bash
+conda create -n longbarcodeqc -c conda-forge -c bioconda \
+  python=3.12 minimap2 samtools parasail-python cutadapt
+conda activate longbarcodeqc
 pip install LongBarcodeQC
 ```
 
-> **Apple Silicon / ARM Linux:** `parasail` publishes no prebuilt wheel for arm64, so pip will
-> try to compile it from source (which needs autoconf, automake, libtool and m4). Installing it
-> from bioconda first avoids the build entirely:
->
-> ```bash
-> conda install -c bioconda parasail-python
-> pip install LongBarcodeQC
-> ```
-
-To install the development version directly from GitHub:
+Or create the environment from the file in the repository:
 
 ```bash
-pip install git+https://github.com/goodez/LongBarcodeQC.git
+conda env create -f environment.yml
+conda activate longbarcodeqc
+pip install LongBarcodeQC
+```
+
+To install the development version instead of the released one:
+
+```bash
+pip install git+https://github.com/ArpiarSaundersLab/LongBarcodeQC.git
 ```
 
 After installation, the `lbqc` command will be available in your environment.
@@ -130,9 +118,12 @@ lbqc \
 ## Requirements
 
 - Python ≥ 3.10
-- minimap2 (external, see installation above)
-- samtools (external, see installation above)
-- pandas, parasail, matplotlib, seaborn, jinja2, pyarrow, tqdm, cutadapt (installed automatically with pip)
+- minimap2 and samtools (external tools, installed with conda — see above)
+- parasail and cutadapt ≥ 5.2 (compiled dependencies; installed with conda — see above)
+- pandas, matplotlib, seaborn, jinja2, pyarrow, tqdm (pure-Python; installed automatically with pip)
+
+`cutadapt` is only needed for the `-T`/`--trim` option, but it is installed as a
+dependency so trimming works out of the box.
 
 ## Test data
 
@@ -141,7 +132,7 @@ Four small test datasets (3,000 reads each) are included in the GitHub repositor
 package to keep the download small — clone the repository to use them:
 
 ```bash
-git clone https://github.com/goodez/LongBarcodeQC.git
+git clone https://github.com/ArpiarSaundersLab/LongBarcodeQC.git
 cd LongBarcodeQC
 
 lbqc -i longbarcodeqc/test/data/PadlockSeq_AP/ -o /tmp/test_AP -b AP -l 300

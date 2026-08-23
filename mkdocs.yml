@@ -1,6 +1,6 @@
 site_name: LongBarcodeQC
-site_url: https://goodez.github.io/LongBarcodeQC/
-repo_url: https://github.com/goodez/LongBarcodeQC
+site_url: https://arpiarsaunderslab.github.io/LongBarcodeQC/
+repo_url: https://github.com/ArpiarSaundersLab/LongBarcodeQC
 edit_uri: edit/main/docs/
 
 theme:

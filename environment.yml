@@ -1,0 +1,19 @@
+name: longbarcodeqc
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.12
+  # external tools
+  - minimap2
+  - samtools
+  # compiled python dependencies (no arm64 wheels on PyPI)
+  - parasail-python
+  - cutadapt>=5.2
+  # python dependencies
+  - pandas>=2.1.1
+  - matplotlib>=3.8.4
+  - jinja2>=3.1.4
+  - seaborn>=0.13.2
+  - pyarrow>=14.0
+  - tqdm>=4.66

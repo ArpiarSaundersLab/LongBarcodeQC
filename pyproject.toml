@@ -41,16 +41,16 @@ dependencies = [
     "seaborn >= 0.13.2",
     "pyarrow >= 14.0",
     "tqdm >= 4.66",
-    "cutadapt >= 4.0"
+    "cutadapt >= 5.2"
 ]
 
 readme = "README.md"
 
 [project.urls]
-Homepage = "https://github.com/goodez/LongBarcodeQC"
-Documentation = "https://goodez.github.io/LongBarcodeQC/"
-Repository = "https://github.com/goodez/LongBarcodeQC"
-Issues = "https://github.com/goodez/LongBarcodeQC/issues"
+Homepage = "https://github.com/ArpiarSaundersLab/LongBarcodeQC"
+Documentation = "https://arpiarsaunderslab.github.io/LongBarcodeQC/"
+Repository = "https://github.com/ArpiarSaundersLab/LongBarcodeQC"
+Issues = "https://github.com/ArpiarSaundersLab/LongBarcodeQC/issues"
 
 [tool.setuptools]
 packages = ["longbarcodeqc"]

@@ -1,33 +1,24 @@
 # Installation
 
-## 1. Install external dependencies
+LongBarcodeQC requires **Python ≥ 3.10** and several external bioinformatics tools
+(minimap2, samtools, parasail, cutadapt). These are installed with conda, which provides
+prebuilt binaries for every supported platform — including Apple Silicon (osx-arm64) and
+ARM Linux, where `parasail` and `cutadapt` have no wheels on PyPI and would otherwise be
+compiled from source.
 
-LongBarcodeQC requires **minimap2** and **samtools** to be installed separately.
-
-**minimap2** — long-read aligner:
+## 1. Create the environment
 
 ```bash
-# conda (macOS/Linux)
-conda install -c bioconda minimap2
-
-# Homebrew (macOS)
-brew install minimap2
-
-# apt (Linux)
-sudo apt install minimap2
+conda create -n longbarcodeqc -c conda-forge -c bioconda \
+  python=3.12 minimap2 samtools parasail-python cutadapt
+conda activate longbarcodeqc
 ```
 
-**samtools** — SAM/BAM processing:
+Or use the environment file from the repository:
 
 ```bash
-# conda (macOS/Linux)
-conda install -c bioconda samtools
-
-# Homebrew (macOS)
-brew install samtools
-
-# apt (Linux)
-sudo apt install samtools
+conda env create -f environment.yml
+conda activate longbarcodeqc
 ```
 
 ## 2. Install LongBarcodeQC
@@ -36,20 +27,16 @@ sudo apt install samtools
 pip install LongBarcodeQC
 ```
 
-!!! warning "Apple Silicon / ARM Linux"
-    `parasail` publishes no prebuilt wheel for arm64, so pip will try to compile it from
-    source (which needs autoconf, automake, libtool and m4). Installing it from bioconda
-    first avoids the build entirely:
-
-    ```bash
-    conda install -c bioconda parasail-python
-    pip install LongBarcodeQC
-    ```
-
-To install the development version directly from GitHub:
+To install the development version instead of the released one:
 
 ```bash
-pip install git+https://github.com/goodez/LongBarcodeQC.git
+pip install git+https://github.com/ArpiarSaundersLab/LongBarcodeQC.git
 ```
 
 After installation, the `lbqc` command will be available in your environment.
+
+## Verifying the installation
+
+```bash
+lbqc --help
+```
