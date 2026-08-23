@@ -12,9 +12,9 @@ Three barcode libraries are included. Pass the preset keyword to `-b`:
 
 | Keyword | Description |
 |---------|-------------|
-| `EV` | Expression Vector (256 barcodes) |
-| `AP` | Assembly Plasmid (256 barcodes) |
-| `TS` | TritSeq (48 barcodes) |
+| `EV` | Expression Vector — 3 sites x 256 barcodes (768 total) |
+| `AP` | Assembly Plasmid — 3 sites x 256 barcodes (768 total) |
+| `TS` | TritSeq — 4 sites x 4 positions x 3 barcodes (48 total) |
 
 ```bash
 lbqc -i fastq_pass/ -o results/ -b EV

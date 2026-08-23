@@ -9,3 +9,5 @@ longbarcodeqc/out/
 site/
 .vscode
 CLAUDE.md
+dist/
+build/

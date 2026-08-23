@@ -1,4 +1,4 @@
-<img src="icon.png" alt="LongBarcodeQC" width="400"/>
+<img src="https://raw.githubusercontent.com/goodez/LongBarcodeQC/main/icon.png" alt="LongBarcodeQC" width="400"/>
 
 # LongBarcodeQC
 
@@ -16,46 +16,42 @@
 
 ## Installation
 
-LongBarcodeQC requires **Python ≥ 3.10** and two external bioinformatics tools that must be installed separately.
+LongBarcodeQC requires **Python ≥ 3.10** and two external bioinformatics tools that must be
+installed separately: **minimap2** and **samtools**.
 
-Install LongBarcodeQC
+### 1. Install the external tools
+
+```bash
+# conda (macOS/Linux)
+conda install -c bioconda minimap2 samtools
+
+# Homebrew (macOS)
+brew install minimap2 samtools
+
+# apt (Linux)
+sudo apt install minimap2 samtools
+```
+
+### 2. Install LongBarcodeQC
 
 ```bash
 pip install LongBarcodeQC
 ```
 
-Install external dependencies
+> **Apple Silicon / ARM Linux:** `parasail` publishes no prebuilt wheel for arm64, so pip will
+> try to compile it from source (which needs autoconf, automake, libtool and m4). Installing it
+> from bioconda first avoids the build entirely:
+>
+> ```bash
+> conda install -c bioconda parasail-python
+> pip install LongBarcodeQC
+> ```
 
-**minimap2** — long-read aligner:
-
-```bash
-# conda (macOS/Linux)
-conda install -c bioconda minimap2
-
-# Homebrew (macOS)
-brew install minimap2
-
-# apt (Linux)
-sudo apt install minimap2
-```
-
-**samtools** — SAM/BAM processing:
+To install the development version directly from GitHub:
 
 ```bash
-# conda (macOS/Linux)
-conda install -c bioconda samtools
-
-# Homebrew (macOS)
-brew install samtools
-
-# apt (Linux)
-sudo apt install samtools
+pip install git+https://github.com/goodez/LongBarcodeQC.git
 ```
-
-
-
-To install directly from GitHub:
-
 
 After installation, the `lbqc` command will be available in your environment.
 
@@ -79,9 +75,9 @@ Three built-in barcode libraries are included:
 
 | Keyword | Description |
 |---------|-------------|
-| `EV` | Expression Vector (256 barcodes per site) |
-| `AP` | Assembly Plasmid (256 barcodes per site) |
-| `TS` | TritSeq (3 barcodes per site) |
+| `EV` | Expression Vector — 3 sites x 256 barcodes (768 total) |
+| `AP` | Assembly Plasmid — 3 sites x 256 barcodes (768 total) |
+| `TS` | TritSeq — 4 sites x 4 positions x 3 barcodes (48 total) |
 
 ```bash
 lbqc -i fastq_pass/ -o results/ -b EV
@@ -102,6 +98,7 @@ lbqc -i fastq_pass/ -o results/ -b /path/to/barcodes.fa
 | `-f`, `--flanks` | FASTA with upstream and downstream MCS flanking sequences (required for custom plasmids) |
 | `-r`, `--enzymes` | Text file listing desired restriction enzyme names and sequences (one per line, comma-separated) |
 | `-a`, `--AP` | Flag Assembly Plasmid reads as contamination (useful after transfer to Expression Vector) |
+| `-T`, `--trim` | Trim the ONT Rapid (RAP) adapter and its leader sequence with cutadapt before alignment |
 | `-S`, `--SBARRO` | Use SBARRO mode (rabies genome; inserts NNN sequence into MCS for alignment) |
 | `-z`, `--zscore` | Manually set z-score threshold for barcode calling (recommended - check html report after initial run) |
 | `-N`, `--expected_insertions` | Expected number of insertions per library member (used in read length histogram) |
@@ -136,3 +133,32 @@ lbqc \
 - minimap2 (external, see installation above)
 - samtools (external, see installation above)
 - pandas, parasail, matplotlib, seaborn, jinja2, pyarrow, tqdm, cutadapt (installed automatically with pip)
+
+## Test data
+
+Four small test datasets (3,000 reads each) are included in the GitHub repository under
+`longbarcodeqc/test/data/` to verify an installation. They are not shipped in the PyPI
+package to keep the download small — clone the repository to use them:
+
+```bash
+git clone https://github.com/goodez/LongBarcodeQC.git
+cd LongBarcodeQC
+
+lbqc -i longbarcodeqc/test/data/PadlockSeq_AP/ -o /tmp/test_AP -b AP -l 300
+lbqc -i longbarcodeqc/test/data/PadlockSeq_EV/ -o /tmp/test_EV -b EV -S -a -l 300
+lbqc -i longbarcodeqc/test/data/TritSeq_AP/   -o /tmp/test_TS_AP -b TS -l 300
+lbqc -i longbarcodeqc/test/data/TritSeq_EV/   -o /tmp/test_TS_EV -b TS -S -a -l 300
+```
+
+Each run writes a `*_summary_report.html` file that can be opened in a browser.
+Note that the output directory must be empty.
+
+## Citation
+
+If you use LongBarcodeQC in your work, please cite:
+
+> Goode Z, et al. LongBarcodeQC. (manuscript in preparation)
+
+## License
+
+MIT — see [LICENSE](LICENSE).

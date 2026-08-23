@@ -36,10 +36,20 @@ sudo apt install samtools
 pip install LongBarcodeQC
 ```
 
-To install directly from GitHub:
+!!! warning "Apple Silicon / ARM Linux"
+    `parasail` publishes no prebuilt wheel for arm64, so pip will try to compile it from
+    source (which needs autoconf, automake, libtool and m4). Installing it from bioconda
+    first avoids the build entirely:
+
+    ```bash
+    conda install -c bioconda parasail-python
+    pip install LongBarcodeQC
+    ```
+
+To install the development version directly from GitHub:
 
 ```bash
-pip install git+ssh://git@github.com/goodez/LongBarcodeQC.git
+pip install git+https://github.com/goodez/LongBarcodeQC.git
 ```
 
 After installation, the `lbqc` command will be available in your environment.

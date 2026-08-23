@@ -1,7 +1,6 @@
 [build-system]
-requires = [
-    "setuptools"
-]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "LongBarcodeQC"
@@ -11,6 +10,29 @@ authors = [
     {name="Zach Goode", email="goodez@ohsu.edu"}
 ]
 requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+keywords = [
+    "bioinformatics",
+    "nanopore",
+    "long-read sequencing",
+    "barcode",
+    "quality control",
+    "plasmid",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: POSIX :: Linux",
+    "Environment :: Console",
+]
 dependencies = [
     "pandas >= 2.1.1",
     "parasail >= 1.3.4",
@@ -25,7 +47,10 @@ dependencies = [
 readme = "README.md"
 
 [project.urls]
-repository = "https://github.com/goodez/LongBarcodeQC"
+Homepage = "https://github.com/goodez/LongBarcodeQC"
+Documentation = "https://goodez.github.io/LongBarcodeQC/"
+Repository = "https://github.com/goodez/LongBarcodeQC"
+Issues = "https://github.com/goodez/LongBarcodeQC/issues"
 
 [tool.setuptools]
 packages = ["longbarcodeqc"]
