@@ -2,6 +2,8 @@
 
 # LongBarcodeQC
 
+Documentation: <https://arpiarsaunderslab.github.io/LongBarcodeQC/>
+
 **LongBarcodeQC** is a command-line tool for analyzing combinatorial barcode libraries sequenced with Oxford Nanopore or other long read platforms. It aligns reads, extracts the multi-cloning site (MCS) region, scores each read against a barcode library, and generates an interactive HTML summary report.
 
 ## Features
@@ -153,4 +155,4 @@ If you use LongBarcodeQC in your work, please cite:
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT — see [LICENSE](https://github.com/ArpiarSaundersLab/LongBarcodeQC/blob/main/LICENSE).

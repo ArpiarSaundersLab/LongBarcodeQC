@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "LongBarcodeQC"
-version = "1.0.0"
+version = "1.0.1"
 description = "Analyze long-read barcodes and generate a summary report"
 authors = [
     {name="Zach Goode", email="goodez@ohsu.edu"}
