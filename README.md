@@ -91,6 +91,7 @@ lbqc -i fastq_pass/ -o results/ -b /path/to/barcodes.fa
 | `-z`, `--zscore` | Manually set z-score threshold for barcode calling (recommended - check html report after initial run) |
 | `-N`, `--expected_insertions` | Expected number of insertions per library member (used in read length histogram) |
 | `--full-output` | Write full per-barcode alignment score table as a Parquet file |
+| `-v`, `--version` | Print the LongBarcodeQC version and exit |
 
 ### Example
 

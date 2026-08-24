@@ -28,6 +28,7 @@ def main(args=None):
     # record the run details at the top of the log
     user_command = ' '.join(sys.argv)
     with open(f'{output_dir}/Log.txt', 'a') as log:
+        log.write(f'LongBarcodeQC version: {parser.getVersion()}\n')
         log.write(f'Run started: {start.strftime("%Y-%m-%d %H:%M:%S")}\n')
         log.write(f'User command: {user_command}\n\n')
 

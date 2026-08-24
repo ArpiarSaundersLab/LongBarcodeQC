@@ -1,13 +1,14 @@
 # CLI Reference
 
 ```text
-usage: lbqc [-h] -i INPUT -o OUTPUT [-p PLASMID] -b BARCODES [-l INSERT_LENGTH] [-f FLANKS] [-r ENZYMES] [-a] [-T] [-S]
-            [-z ZSCORE] [-N EXPECTED_INSERTIONS] [--full-output]
+usage: lbqc [-h] [-v] -i INPUT -o OUTPUT [-p PLASMID] -b BARCODES [-l INSERT_LENGTH] [-f FLANKS] [-r ENZYMES] [-a] [-T]
+            [-S] [-z ZSCORE] [-N EXPECTED_INSERTIONS] [--full-output]
 
 Analyze long-read barcodes and generate a summary report
 
 options:
   -h, --help            show this help message and exit
+  -v, --version         Show the LongBarcodeQC version and exit.
   -i INPUT, --input INPUT
                         Path to input fastq files (nanopore fastq_pass folder).
   -o OUTPUT, --output OUTPUT

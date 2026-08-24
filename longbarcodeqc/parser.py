@@ -2,8 +2,16 @@ import argparse
 import shutil
 import sys
 import os
+from importlib.metadata import version, PackageNotFoundError
 
 DEFAULT_PLASMID = 'AP'
+
+def getVersion() -> str:
+    """Return the installed LongBarcodeQC version, or 'unknown' if not installed."""
+    try:
+        return version('LongBarcodeQC')
+    except PackageNotFoundError:  # running from a source checkout
+        return 'unknown'
 
 def getArgs() -> tuple[argparse.Namespace, argparse.ArgumentParser]:
     """Parse and return command-line arguments for barcodezy.
@@ -13,6 +21,10 @@ def getArgs() -> tuple[argparse.Namespace, argparse.ArgumentParser]:
     arg_parser = argparse.ArgumentParser(
         description="Analyze long-read barcodes and generate a summary report"
     )
+    arg_parser.add_argument('-v', '--version',
+                        action='version',
+                        version=f'lbqc {getVersion()}',
+                        help='Show the LongBarcodeQC version and exit.')
     arg_parser.add_argument('-i', '--input',
                         help='Path to input fastq files '
                         '(nanopore fastq_pass folder). ',
