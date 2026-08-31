@@ -18,26 +18,25 @@ Documentation: <https://arpiarsaunderslab.github.io/LongBarcodeQC/>
 
 ## Installation
 
-LongBarcodeQC requires **Python ≥ 3.10** and several external bioinformatics tools
-(minimap2, samtools, parasail, cutadapt). Install them with conda, which provides
-prebuilt binaries for all supported platforms including Apple Silicon and ARM Linux:
+The recommended way to install LongBarcodeQC is with conda, which pulls in the external
+tools (minimap2, samtools) and compiled dependencies (parasail, cutadapt) automatically
+on every supported platform, including Apple Silicon and ARM Linux:
 
 ```bash
-conda create -n longbarcodeqc -c conda-forge -c bioconda \
-  python=3.12 minimap2 samtools parasail-python cutadapt
-conda activate longbarcodeqc
+conda install -c conda-forge -c bioconda longbarcodeqc
+```
+
+### Installing from PyPI
+
+LongBarcodeQC is also on PyPI, but `pip` does not install minimap2 or samtools, and
+`parasail` has no prebuilt wheel for arm64. Install those dependencies with conda first:
+
+```bash
+conda install -c conda-forge -c bioconda minimap2 samtools parasail-python cutadapt
 pip install LongBarcodeQC
 ```
 
-Or create the environment from the file in the repository:
-
-```bash
-conda env create -f environment.yml
-conda activate longbarcodeqc
-pip install LongBarcodeQC
-```
-
-To install the development version instead of the released one:
+To install the development version from GitHub:
 
 ```bash
 pip install git+https://github.com/ArpiarSaundersLab/LongBarcodeQC.git
@@ -121,9 +120,11 @@ lbqc \
 ## Requirements
 
 - Python ≥ 3.10
-- minimap2 and samtools (external tools, installed with conda — see above)
-- parasail and cutadapt ≥ 5.2 (compiled dependencies; installed with conda — see above)
-- pandas, matplotlib, seaborn, jinja2, pyarrow, tqdm (pure-Python; installed automatically with pip)
+- minimap2 and samtools (external tools)
+- parasail and cutadapt ≥ 5.2 (compiled dependencies)
+- pandas, matplotlib, seaborn, jinja2, pyarrow, tqdm (pure Python)
+
+All of these are installed automatically by the conda install above.
 
 `cutadapt` is only needed for the `-T`/`--trim` option, but it is installed as a
 dependency so trimming works out of the box.

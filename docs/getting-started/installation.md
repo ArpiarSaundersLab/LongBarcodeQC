@@ -1,42 +1,39 @@
 # Installation
 
-LongBarcodeQC requires **Python ≥ 3.10** and several external bioinformatics tools
-(minimap2, samtools, parasail, cutadapt). These are installed with conda, which provides
-prebuilt binaries for every supported platform — including Apple Silicon (osx-arm64) and
-ARM Linux, where `parasail` and `cutadapt` have no wheels on PyPI and would otherwise be
-compiled from source.
+## Recommended: conda
 
-## 1. Create the environment
+The simplest way to install LongBarcodeQC is with conda. This pulls in the external tools
+(minimap2, samtools) and the compiled dependencies (parasail, cutadapt) automatically, on
+every supported platform — including Apple Silicon (osx-arm64) and ARM Linux, where
+`parasail` has no wheel on PyPI:
 
 ```bash
-conda create -n longbarcodeqc -c conda-forge -c bioconda \
-  python=3.12 minimap2 samtools parasail-python cutadapt
-conda activate longbarcodeqc
+conda install -c conda-forge -c bioconda longbarcodeqc
 ```
 
-Or use the environment file from the repository:
+Both channels are required: `longbarcodeqc` and the bioinformatics tools come from
+bioconda, while Python and the general-purpose libraries come from conda-forge.
+
+## Alternative: PyPI
+
+LongBarcodeQC is also published on PyPI. Note that `pip` will **not** install minimap2 or
+samtools, and `parasail` has no prebuilt arm64 wheel, so install those dependencies with
+conda first:
 
 ```bash
-conda env create -f environment.yml
-conda activate longbarcodeqc
-```
-
-## 2. Install LongBarcodeQC
-
-```bash
+conda install -c conda-forge -c bioconda minimap2 samtools parasail-python cutadapt
 pip install LongBarcodeQC
 ```
 
-To install the development version instead of the released one:
+## Development version
 
 ```bash
 pip install git+https://github.com/ArpiarSaundersLab/LongBarcodeQC.git
 ```
 
-After installation, the `lbqc` command will be available in your environment.
-
 ## Verifying the installation
 
 ```bash
+lbqc --version
 lbqc --help
 ```
