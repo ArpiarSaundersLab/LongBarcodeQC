@@ -483,9 +483,15 @@ def report_gen(
     # summary table output
     summary, z_plot, z_thresh_used = z_score_barcode_calling(reads, z_thresh)
 
-    # get upper x lim for read length histograms from actual read length distribution
-    p99 = summary.seq_len.quantile(0.95)
-    max_len = math.ceil(p99 / 1000) * 1000
+    # get upper x lim for read length histograms from actual read length distribution,
+    # extended to cover the target plasmid reads: in libraries dominated by short E. coli
+    # reads, the all-reads cutoff can fall below the full-length plasmid peak
+    upper = summary.seq_len.quantile(0.95)
+    target = _target_type(summary)
+    target_lens = summary.seq_len[summary.read_type.isin([target, f'{target}_failed_anchor'])]
+    if len(target_lens):
+        upper = max(upper, target_lens.quantile(0.99))
+    max_len = math.ceil(upper / 1000) * 1000
     max_len = max_len + math.ceil(max_len * 0.1 / 1000) * 1000  # add ~10% buffer
 
     read_type_hist = read_length_hist(summary, 'read_type', max_len, expected_insertions)
