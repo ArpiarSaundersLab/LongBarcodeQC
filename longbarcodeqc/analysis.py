@@ -67,8 +67,15 @@ def _top_legend(ax, ncol: int) -> None:
 
 
 def _target_type(reads_df: pd.DataFrame) -> str:
-    """Read type of the target plasmid: 'plasmid' for a custom/SBARRO plasmid, else 'AP-Amp'."""
-    return 'plasmid' if reads_df.read_type.str.startswith('plasmid').any() else 'AP-Amp'
+    """Read type of the target plasmid.
+
+    'plasmid' for a custom/SBARRO plasmid. With the default assembly plasmids it is AP-Amp or
+    AP-Kan, whichever has more reads (MCS found or not), matching the backbone consensus.
+    """
+    read_types = reads_df.read_type.str.replace('_failed_anchor', '', regex=False)
+    if (read_types == 'plasmid').any():
+        return 'plasmid'
+    return 'AP-Kan' if (read_types == 'AP-Kan').sum() > (read_types == 'AP-Amp').sum() else 'AP-Amp'
 
 
 def _read_type_style(read_types: list[str], target: str) -> Dict[str, tuple[str, str]]:
@@ -262,12 +269,43 @@ def MCS_length_hist(
     return _length_hist(df.MCS_len, groups, styles, mcs_max, 'MCS cassette length (bp)')
 
 
-def backbone_map(backbone: dict, mcs_len: float) -> str:
-    """Circular plasmid map of the backbone consensus with read depth around it.
+# feature colors by kind (categorical slots not used by the depth band or the flanks)
+FEATURE_KINDS = {
+    'CDS': ('Coding', '#4a3aa7'), 'gene': ('Coding', '#4a3aa7'),
+    'rep_origin': ('Origin', '#eda100'),
+    'promoter': ('Regulatory', '#e87ba4'), 'enhancer': ('Regulatory', '#e87ba4'),
+    'terminator': ('Regulatory', '#e87ba4'),
+}
+_OTHER_KIND = ('Other', '#008300')
+_RIGHT_FLANK_COLOR, _LEFT_FLANK_COLOR = _SERIES[1], _SERIES[2]
 
-    The MCS sits at the top (drawn to scale from the median MCS length), with the left
-    flank before it and the right flank after it going clockwise; the backbone consensus
-    runs clockwise from the right flank around to the left flank.
+
+def feature_kind(feature_type: str) -> tuple[str, str]:
+    """(legend label, color) for a map feature type."""
+    return FEATURE_KINDS.get(feature_type, _OTHER_KIND)
+
+
+def _spread_labels(ys: list[float], gap: float, top: float, bottom: float) -> list[float]:
+    """Push label heights apart (keeping their order) so neighbours are at least `gap` apart."""
+    ys = list(ys)
+    for _ in range(50):
+        for i in range(1, len(ys)):
+            ys[i] = min(ys[i], ys[i - 1] - gap)
+        ys[-1] = max(ys[-1], bottom)
+        for i in range(len(ys) - 2, -1, -1):
+            ys[i] = max(ys[i], ys[i + 1] + gap)
+        ys[0] = min(ys[0], top)
+    return ys
+
+
+def backbone_map(backbone: dict, mcs_len: float) -> str:
+    """Circular plasmid map of the backbone consensus.
+
+    The MCS sits at the top (to scale, from the median MCS length) with the left flank
+    before it and the right flank after it going clockwise; the backbone runs clockwise
+    from the right flank around to the left flank. Reference features (carried over to
+    the consensus) sit on the ring as arrows in their strand direction, read depth is the
+    band inside the ring, and differences from the reference are ticks just inside it.
     """
     depth = backbone['depth']
     bb_len = len(depth)
@@ -275,71 +313,121 @@ def backbone_map(backbone: dict, mcs_len: float) -> str:
     total = bb_len + mcs_len
 
     def theta(pos):
-        # position 0 = start of the backbone (right flank), just clockwise of the MCS
+        # backbone position 0 (start of the right flank) sits just clockwise of the MCS
         return np.pi / 2 - 2 * np.pi * (mcs_len / 2 + np.asarray(pos, dtype=float)) / total
 
-    ring, band = 1.0, 0.32
-    with plt.rc_context(_THEME):
-        fig = plt.figure(figsize=(6.4, 6.4))
-        ax = fig.add_subplot(projection='polar')
-        ax.set_axis_off()
-        ax.set_ylim(0, ring + band + 0.42)
+    def xy(t, r):
+        return r * np.cos(t), r * np.sin(t)
 
-        # read depth as a band outside the backbone ring; a rolling median removes the
-        # single-base dips from read indels (mostly homopolymers), which are not coverage loss
+    def sector(ax, start, end, r0, r1, color, strand='.'):
+        """Filled ring sector from start to end (backbone positions), arrow-tipped by strand."""
+        t0, t1 = theta(start), theta(end)
+        head = min(abs(t1 - t0) * 0.45, 0.07)  # arrowhead length in radians
+        n = max(8, int(abs(t1 - t0) * 80))
+        if strand == '+':
+            body = np.linspace(t0, t1 + head, n)
+            outer = list(zip(*xy(body, r1))) + [xy(t1, (r0 + r1) / 2)]
+            inner = list(zip(*xy(body[::-1], r0)))
+        elif strand == '-':
+            body = np.linspace(t0 - head, t1, n)
+            outer = [xy(t0, (r0 + r1) / 2)] + list(zip(*xy(body, r1)))
+            inner = list(zip(*xy(body[::-1], r0)))
+        else:
+            body = np.linspace(t0, t1, n)
+            outer = list(zip(*xy(body, r1)))
+            inner = list(zip(*xy(body[::-1], r0)))
+        ax.add_patch(plt.Polygon(outer + inner, closed=True, facecolor=color, edgecolor=_SURFACE,
+                                 linewidth=0.8, zorder=3))
+
+    ring = 1.0
+    feat_r0, feat_r1 = 0.955, 1.05        # feature band on the ring
+    flank_r0, flank_r1 = 0.915, 0.95      # flanks just inside it
+    base, peak = 0.70, 0.86               # depth band
+    with plt.rc_context(_THEME):
+        fig, ax = plt.subplots(figsize=(7.2, 7.2))
+        ax.set_aspect('equal')
+        ax.set_axis_off()
+        ax.set_xlim(-1.62, 1.62)
+        ax.set_ylim(-1.5, 1.5)
+
+        # read depth inside the ring; a rolling median removes single-base dips from read
+        # indels (mostly homopolymers), which are not coverage loss
         window = max(5, bb_len // 300)
         smooth = pd.Series(depth).rolling(window, center=True, min_periods=1).median().to_numpy()
-        step = max(1, bb_len // 1500)
-        pos = np.arange(0, bb_len, step)
-        r = ring + 0.03 + band * smooth[pos] / max(smooth.max(), 1)
-        ax.fill_between(theta(pos), ring + 0.03, r, color=_SERIES[0], alpha=0.14, linewidth=0)
-        ax.plot(theta(pos), r, color=_SERIES[0], linewidth=1.2)
+        pos = np.arange(0, bb_len, max(1, bb_len // 1500))
+        r = base + (peak - base) * smooth[pos] / max(smooth.max(), 1)
+        t = theta(pos)
+        ax.fill(np.concatenate([r * np.cos(t), base * np.cos(t[::-1])]),
+                np.concatenate([r * np.sin(t), base * np.sin(t[::-1])]),
+                color=_SERIES[0], alpha=0.14, linewidth=0)
+        ax.plot(r * np.cos(t), r * np.sin(t), color=_SERIES[0], linewidth=1.2)
+        ax.plot(*xy(theta(np.linspace(0, bb_len, 400)), base), color=_GRID, linewidth=1)
 
-        # backbone ring, MCS arc and flank arcs
-        ax.plot(theta(np.linspace(0, bb_len, 600)), np.full(600, ring), color=_AXIS, linewidth=3,
-                solid_capstyle='butt')
-        mcs = np.linspace(-mcs_len, 0, 50)
-        ax.plot(theta(mcs), np.full(50, ring), color=_INK_2, linewidth=3, linestyle=(0, (1.5, 1.5)))
-        flanks = [('Right flank', 0, right_len, _SERIES[1]),
-                  ('Left flank', bb_len - left_len, bb_len, _SERIES[2])]
-        for _, start, end, color in flanks:
-            ax.plot(theta(np.linspace(start, end, 30)), np.full(30, ring), color=color, linewidth=7,
-                    solid_capstyle='butt')
+        # backbone ring and the MCS (dotted) at the top
+        ax.plot(*xy(theta(np.linspace(0, bb_len, 600)), ring), color=_AXIS, linewidth=2)
+        ax.plot(*xy(theta(np.linspace(-mcs_len, 0, 60)), ring), color=_INK_2, linewidth=2,
+                linestyle=(0, (1.5, 2)))
 
-        # differences from the reference, as ticks just inside the ring
+        # flanks and features
+        sector(ax, 0, right_len, flank_r0, flank_r1, _RIGHT_FLANK_COLOR)
+        sector(ax, bb_len - left_len, bb_len, flank_r0, flank_r1, _LEFT_FLANK_COLOR)
+        features = sorted(backbone.get('features', []), key=lambda f: f['start'])
+        lane_end = [-1, -1]
+        labels = [('Right flank', right_len / 2, flank_r1), ('Left flank', bb_len - left_len / 2, flank_r1)]
+        for f in features:
+            lane = 0 if f['start'] > lane_end[0] else 1  # overlapping features step outward
+            lane_end[lane] = max(lane_end[lane], f['end'])
+            shift = 0.11 * lane
+            sector(ax, f['start'] - 1, f['end'], feat_r0 + shift, feat_r1 + shift,
+                   feature_kind(f['type'])[1], f['strand'])
+            labels.append((f['name'], (f['start'] + f['end']) / 2, feat_r1 + shift))
+
+        # differences from the reference
         variants = backbone['comparison']['variants'] if backbone.get('comparison') else []
         for v in variants:
-            t = theta(v['consensus_pos'])
-            ax.plot([t, t], [ring - 0.09, ring - 0.03], color=_INK, linewidth=1)
+            ax.plot(*xy(np.full(2, theta(v['consensus_pos'])), np.array([0.875, 0.905])),
+                    color=_INK, linewidth=1)
 
-        # kb ticks inside the ring
+        # kb ticks on the depth baseline, with upright labels centred on the tick's radial
+        # line; each label is pushed in by its own half-width/height so the gap to the tick
+        # is the same all the way round
         tick_step = next(s for s in (500, 1000, 2000, 5000, 10000, 20000) if bb_len / s <= 10)
+        per_pt = (ax.get_xlim()[1] - ax.get_xlim()[0]) / (fig.get_figwidth() * 72)
+        tick_size = 8.5
         for kb in range(tick_step, bb_len - tick_step // 3, tick_step):
-            t = theta(kb)
-            ax.plot([t, t], [ring - 0.02, ring - 0.0], color=_AXIS, linewidth=1)
-            ax.text(t, ring - 0.17, f'{kb / 1000:g} kb', ha='center', va='center',
-                    color=_MUTED, fontsize=8)
+            tk = float(theta(kb))
+            label = f'{kb / 1000:g} kb'
+            half_w = 0.5 * len(label) * 0.56 * tick_size * per_pt
+            half_h = 0.5 * 0.8 * tick_size * per_pt
+            r_label = base - 0.03 - 0.025 - (half_w * abs(np.cos(tk)) + half_h * abs(np.sin(tk)))
+            ax.plot(*xy(np.full(2, tk), np.array([base - 0.03, base])), color=_AXIS, linewidth=1)
+            ax.text(*xy(tk, r_label), label, ha='center', va='center', color=_INK_2,
+                    fontsize=tick_size)
 
-        # labels for the MCS and flanks, pushed outward with short leader lines
-        labels = [('MCS', -mcs_len / 2, _INK_2, f'~{mcs_len:,.0f} bp'),
-                  ('Right flank', right_len / 2, _INK_2, f'{right_len} bp'),
-                  ('Left flank', bb_len - left_len / 2, _INK_2, f'{left_len} bp')]
-        spread = {'MCS': 0.0, 'Right flank': -0.32, 'Left flank': 0.32}
-        for name, p, color, sub in labels:
-            t = float(theta(p))
-            tl = t + spread[name]
-            ax.plot([t, tl], [ring + 0.04, ring + band + 0.16], color=_AXIS, linewidth=0.8)
-            ha = 'center' if name == 'MCS' else ('left' if np.cos(tl) > 0 else 'right')
-            ax.text(tl, ring + band + 0.22, f'{name}\n', ha=ha, va='center', color=_INK,
-                    fontsize=10, fontweight='bold')
-            ax.text(tl, ring + band + 0.22, f'\n{sub}', ha=ha, va='center', color=_MUTED, fontsize=9)
+        # labels in two columns around the outside, spread apart, with elbow leader lines
+        ax.text(0, 1.33, f'MCS  ~{mcs_len:,.0f} bp', ha='center', va='center', color=_INK,
+                fontsize=9.5, fontweight='bold')
+        gap, label_r, top = 0.105, 1.25, 1.2
+        for side in (1, -1):
+            items = [(n, p, r0) for n, p, r0 in labels if np.sign(np.cos(theta(p))) == side
+                     or (np.cos(theta(p)) == 0 and side == 1)]
+            items.sort(key=lambda it: -np.sin(theta(it[1])))
+            ys = _spread_labels([1.18 * np.sin(theta(p)) for _, p, _ in items], gap, top, -1.42)
+            for (name, p, r0), y in zip(items, ys):
+                tp = theta(p)
+                x = side * max(np.sqrt(max(label_r ** 2 - y ** 2, 0)), 0.32)
+                ex, ey = xy(tp, 1.15)
+                ax.plot([xy(tp, r0 + 0.01)[0], ex, x - side * 0.02], [xy(tp, r0 + 0.01)[1], ey, y],
+                        color=_AXIS, linewidth=0.8, zorder=2)
+                flank = name.endswith('flank')
+                ax.text(x, y, f'{name} ({left_len if name.startswith("Left") else right_len} bp)'
+                        if flank else name, ha='left' if side > 0 else 'right', va='center',
+                        color=_INK_2, fontsize=9)
 
         # centre summary
-        ax.text(0, 0, f'{bb_len:,} bp', ha='center', va='bottom', color=_INK, fontsize=20,
+        ax.text(0, 0.02, f'{bb_len:,} bp', ha='center', va='bottom', color=_INK, fontsize=19,
                 fontweight='bold')
-        ax.text(0, 0, f'\nbackbone consensus\n{backbone["reads_used"]:,} reads · '
-                      f'mean depth {backbone["mean_depth"]:,.0f}×',
-                ha='center', va='top', color=_INK_2, fontsize=9.5, linespacing=1.5)
+        ax.text(0, -0.02, 'backbone consensus', ha='center', va='top', color=_INK_2, fontsize=9)
         return _svg(fig)
 
 
@@ -358,7 +446,7 @@ def _headline_metrics(summary: pd.DataFrame, alignment_counts: Dict[str, int],
 
     return {
         'total_reads': total,
-        'target_label': 'AP-Amp' if target == 'AP-Amp' else 'Target plasmid',
+        'target_label': 'Target plasmid' if target == 'plasmid' else target,
         'target_reads': len(target_reads),
         'target_pct': pct(len(target_reads), total),
         'anchored_reads': len(anchored),
@@ -425,7 +513,13 @@ def report_gen(
 
     metrics = _headline_metrics(summary, alignment_counts, expected_insertions)
     if backbone is not None:
-        backbone = dict(backbone, map_plot=backbone_map(backbone, metrics['median_mcs_len']))
+        # MCS length from the reads the consensus was built from (AP-Kan or AP-Amp by default)
+        built_from = summary[summary.read_type == backbone.get('read_type', _target_type(summary))]
+        mcs_len = built_from.MCS_len.median() if len(built_from) else metrics['median_mcs_len']
+        kinds = {feature_kind(f['type']) for f in backbone.get('features', [])}
+        order = ['Coding', 'Origin', 'Regulatory', 'Other']
+        backbone = dict(backbone, map_plot=backbone_map(backbone, mcs_len),
+                        feature_kinds=sorted(kinds, key=lambda k: order.index(k[0])))
 
     # generate html
     env = Environment(loader=PackageLoader('longbarcodeqc', 'template'))

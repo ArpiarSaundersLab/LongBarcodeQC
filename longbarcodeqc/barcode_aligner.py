@@ -154,13 +154,15 @@ def barcode_scores(
     ap_flag: bool,
     is_default_plasmid: bool,
     SBARRO: bool,
-    backbone_path: Optional[str] = None,
+    backbone_prefix: Optional[str] = None,
 ) -> pd.DataFrame:
     """Compute barcode alignment scores and read statistics.
 
     Returns a DataFrame with one row per read and columns for scores/metadata.
-    If backbone_path is given, the backbones of anchored target plasmid reads are
-    written there as FASTA (input for the backbone consensus).
+    If backbone_prefix is given, the backbones of anchored reads are written as FASTA
+    (input for the backbone consensus) to {backbone_prefix}.{read type}.fa: for the target
+    plasmid reads, and for AP-Kan reads when the default AP plasmids are used (the
+    consensus is built from whichever AP plasmid has more reads).
     """
     exp_name = os.path.basename(outpath)
 
@@ -201,7 +203,7 @@ def barcode_scores(
         long_reads, target_read_type, bc_name_seq, restriction_sites,
         left_flank, right_flank, mcs_flank_len, user_matrix,
         desc=f'Aligning barcodes ({target_read_type})',
-        backbone_path=backbone_path,
+        backbone_path=f'{backbone_prefix}.{target_read_type}.fa' if backbone_prefix else None,
     )
 
     # process AP reads if applicable
@@ -219,6 +221,8 @@ def barcode_scores(
             long_reads_ap_kan, 'AP-Kan', bc_name_seq, restriction_sites,
             ap_left, ap_right, ap_mcs_len, user_matrix,
             desc='Aligning barcodes (AP-Kan)',
+            backbone_path=(f'{backbone_prefix}.AP-Kan.fa'
+                           if backbone_prefix and is_default_plasmid else None),
         )
 
     if add_ap_amp:

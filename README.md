@@ -13,7 +13,7 @@ Documentation: <https://arpiarsaunderslab.github.io/LongBarcodeQC/>
 - Extracts the MCS region from each read using flanking sequence anchors (parasail Smith-Waterman)
 - Scores each read against a barcode library and calls the best-matching barcode per position
 - Detects restriction enzyme cut sites within the MCS
-- Builds a consensus of the plasmid backbone (everything outside the MCS, flanks included) from full-length reads, and compares it to the reference when the reference contains both flanks
+- Optionally (`-c`) builds a consensus of the plasmid backbone (everything outside the MCS, flanks included) from full-length reads and compares it to an annotated reference backbone: the expression vector map with `-S`, AP-Amp or AP-Kan (whichever has more reads) for the default assembly plasmids, or the `-p` plasmid when it contains both flanks
 - Generates a self-contained HTML report with interactive plots (read length distributions, barcode heatmaps, z-score distributions, restriction site summaries)
 - Outputs a compressed summary CSV with per-read barcode calls and QC metrics
 
@@ -90,6 +90,7 @@ lbqc -i fastq_pass/ -o results/ -b /path/to/barcodes.fa
 | `-a`, `--AP` | Flag Assembly Plasmid reads as contamination (useful after transfer to Expression Vector) |
 | `-T`, `--trim` | Trim the ONT Rapid (RAP) adapter and its leader sequence with cutadapt before alignment |
 | `-S`, `--SBARRO` | Use SBARRO mode (rabies genome; inserts NNN sequence into MCS for alignment) |
+| `-c`, `--consensus` | Build a backbone consensus (everything outside the MCS) from full-length reads, compare it to the expected backbone and add it to the report |
 | `-z`, `--zscore` | Manually set z-score threshold for barcode calling (recommended - check html report after initial run) |
 | `-N`, `--expected_insertions` | Expected number of insertions per library member (used in read length histogram) |
 | `--full-output` | Write full per-barcode alignment score table as a Parquet file |
@@ -115,8 +116,8 @@ lbqc \
 | `<name>_summary_report.html` | Self-contained interactive HTML report |
 | `<name>.aligned.fa.gz` | Reads that aligned to the reference plasmid |
 | `<name>.unaligned.fa.gz` | Reads that did not align |
-| `<name>.backbone_consensus.fa` | Consensus of the plasmid outside the MCS, from the downstream flank around to the upstream flank |
-| `<name>.backbone.bam` | Full-length read backbones aligned to the backbone consensus (for inspection, e.g. in IGV) |
+| `<name>.backbone_consensus.fa` | Consensus of the plasmid outside the MCS, from the downstream flank around to the upstream flank (only with `-c`) |
+| `<name>.backbone.bam` | Full-length read backbones aligned to the backbone consensus, for inspection e.g. in IGV (only with `-c`) |
 | `<name>.parquet` | Full barcode alignment scores per read (only with `--full-output`) |
 | `<name>.cutadapt.txt` | cutadapt adapter trimming report (only with `-T`) |
 

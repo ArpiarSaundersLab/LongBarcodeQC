@@ -1,6 +1,9 @@
+import bisect
+import json
 import os
 import re
 import subprocess
+from importlib.resources import files
 from typing import Optional
 
 import numpy as np
@@ -119,11 +122,41 @@ def _peak_length(lengths: np.ndarray) -> int:
     return int(lengths[np.argmax(hi - lo)])
 
 
+def load_reference(name: str) -> dict:
+    """Load a bundled backbone reference (AP-Amp, AP-Kan or EV).
+
+    These are cut from the annotated plasmid maps: everything between the A and B transfer
+    sites (not including them), oriented like the consensus (right flank first), with the
+    map's high-level features in backbone coordinates.
+    """
+    path = files('longbarcodeqc.plasmids').joinpath(f'backbones/{name}.json')
+    return json.loads(path.read_text(encoding='utf-8'))
+
+
+def reference_from_plasmid(ref_seq: str, flanks_path: str, insert_len: int,
+                           name: str) -> Optional[dict]:
+    """Build a backbone reference (without features) from a user-provided plasmid.
+
+    Returns None if the plasmid does not contain both flanks.
+    """
+    # the -p help suggests giving the plasmid concatenated to itself; use one copy
+    half = len(ref_seq) // 2
+    if len(ref_seq) % 2 == 0 and ref_seq[:half] == ref_seq[half:]:
+        ref_seq = ref_seq[:half]
+    found = _reference_backbone(ref_seq, flanks_path, insert_len)
+    if found is None:
+        return None
+    backbone, offset = found
+    return {'name': name, 'label': os.path.splitext(name)[0], 'source': name,
+            'map_length': len(ref_seq), 'map_start': offset + 1,
+            'sequence': backbone, 'features': []}
+
+
 def _reference_backbone(ref_seq: str, flanks_path: str, insert_len: int) -> Optional[tuple[str, int]]:
     """Cut the backbone out of the reference plasmid with the same flank anchoring used on reads.
 
     Returns (backbone, 0-based plasmid position of the backbone's first base), or None if
-    the reference does not contain both flanks (e.g. the partial default AP-Amp reference).
+    the reference does not contain both flanks.
     """
     left, right, _ = _load_flanks(flanks_path, insert_len)
     matrix = parasail.matrix_create('ACGT', match=2, mismatch=-1)
@@ -137,9 +170,11 @@ def _reference_backbone(ref_seq: str, flanks_path: str, insert_len: int) -> Opti
     return (ref_seq * 4)[end:start + ref_len], end % ref_len
 
 
-def _compare_to_reference(consensus_path: str, ref_backbone: str, plasmid_offset: int,
-                          plasmid_len: int, outpath: str, log_path: str) -> Optional[dict]:
-    """Align the consensus to the reference backbone and list the differences."""
+def _compare_to_reference(consensus_path: str, reference: dict, outpath: str,
+                          log_path: str) -> Optional[dict]:
+    """Align the consensus to the reference backbone, list the differences and carry the
+    reference features over to consensus coordinates."""
+    ref_backbone = reference['sequence']
     ref_path = f'{outpath}/.tmp.backbone.ref.fa'
     _write_fasta(ref_path, [('reference_backbone', ref_backbone)])
     paf = subprocess.run(f'minimap2 -c --cs -x asm5 {ref_path} {consensus_path} 2>>{log_path}',
@@ -158,16 +193,19 @@ def _compare_to_reference(consensus_path: str, ref_backbone: str, plasmid_offset
     cs = next(f[5:] for f in hit[12:] if f.startswith('cs:Z:'))
 
     variants = []
+    blocks = []  # aligned (reference start, consensus start, length), for lifting positions
     matches = 0
     small_diff_bases = 0
     for op in _CS_OP_RE.findall(cs):
         kind, body = op[0], op[1:]
         if kind == ':':
+            blocks.append((r_pos, q_pos, int(body)))
             matches += int(body)
             q_pos += int(body)
             r_pos += int(body)
             continue
         if kind == '*':
+            blocks.append((r_pos, q_pos, 1))
             ref_base, cons_base = body[0].upper(), body[1].upper()
             # an N in the consensus is a no-call, not a difference from the reference
             if cons_base != 'N':
@@ -187,8 +225,32 @@ def _compare_to_reference(consensus_path: str, ref_backbone: str, plasmid_offset
     def _show(bases: str) -> str:
         return bases if len(bases) <= 20 else f'{len(bases):,} bp'
 
+    q_len = int(hit[1])
+    block_starts = [b[0] for b in blocks]
+
+    def lift(r: int) -> int:
+        """0-based reference position -> 0-based consensus position."""
+        i = bisect.bisect_right(block_starts, r) - 1
+        if i < 0:  # before the alignment: extend back from its start
+            return max(0, blocks[0][1] - (blocks[0][0] - r))
+        b_r, b_q, n = blocks[i]
+        if r < b_r + n:
+            return b_q + (r - b_r)
+        if i + 1 < len(blocks):  # deleted in the consensus: next aligned base
+            return blocks[i + 1][1]
+        return min(q_len - 1, b_q + n - 1 + (r - (b_r + n - 1)))
+
+    features = [dict(f, start=lift(f['start'] - 1) + 1, end=lift(f['end'] - 1) + 1)
+                for f in reference['features']]
+
+    def in_features(r: int) -> str:
+        return ', '.join(f['name'] for f in reference['features'] if f['start'] <= r + 1 <= f['end'])
+
     aligned_ref = int(hit[8]) - int(hit[7])
     return {
+        'ref_label': reference['label'],
+        'ref_source': reference['source'],
+        'features': features,
         'ref_len': len(ref_backbone),
         'ref_covered': aligned_ref / len(ref_backbone),
         # identity over the aligned bases, leaving out no-calls and large indels
@@ -202,9 +264,9 @@ def _compare_to_reference(consensus_path: str, ref_backbone: str, plasmid_offset
             {
                 'type': kind,
                 'size': 1 if kind == 'Substitution' else len(ref_bases + alt),
-                # 1-based positions; plasmid position is on the input reference
+                # 1-based; the reference backbone and the consensus both start at the right flank
                 'backbone_pos': r + 1,
-                'plasmid_pos': (plasmid_offset + r) % plasmid_len + 1,
+                'feature': in_features(r),
                 'consensus_pos': q + 1,
                 'ref': _show(ref_bases) or '-',
                 'alt': _show(alt) or '-',
@@ -219,7 +281,7 @@ def backbone_consensus(
     backbone_reads_path: str,
     flanks_path: str,
     insert_len: int,
-    ref_seq: str,
+    reference: Optional[dict],
 ) -> Optional[dict]:
     """Build a consensus of the plasmid backbone (everything outside the MCS, flanks included).
 
@@ -232,6 +294,9 @@ def backbone_consensus(
     at the downstream (right) flank and runs around the plasmid to the end of the upstream
     (left) flank.
 
+    If a reference backbone is given (see load_reference / reference_from_plasmid), the
+    consensus is compared to it and its features are carried over to the consensus.
+
     Writes {exp}.backbone_consensus.fa and {exp}.backbone.bam (backbones aligned to the
     consensus). Returns a dict of results for the report, or None if it could not be built.
     """
@@ -241,7 +306,7 @@ def backbone_consensus(
     reads = _read_fasta(backbone_reads_path)
     os.remove(backbone_reads_path)
     if len(reads) < _MIN_READS:
-        print(f'Warning: only {len(reads)} anchored target reads; skipping backbone consensus.')
+        print(f'Warning: only {len(reads)} reads with the MCS found; skipping backbone consensus.')
         return None
 
     peak_len = _peak_length(np.array([len(seq) for _, seq in reads]))
@@ -290,11 +355,9 @@ def backbone_consensus(
     os.remove(kept_path)
     depth = _depth(final_bam, len(seq))
 
-    ref_backbone = _reference_backbone(ref_seq, flanks_path, insert_len)
     comparison = None
-    if ref_backbone is not None:
-        comparison = _compare_to_reference(consensus_path, ref_backbone[0], ref_backbone[1],
-                                           len(ref_seq), outpath, log_path)
+    if reference is not None:
+        comparison = _compare_to_reference(consensus_path, reference, outpath, log_path)
 
     left, right, _ = _load_flanks(flanks_path, insert_len)
     print(f'Backbone consensus: {len(seq)} bp from {len(kept)} reads\n')
@@ -310,6 +373,7 @@ def backbone_consensus(
         'min_depth': int(depth.min()),
         'n_count': seq.count('N'),
         'comparison': comparison,
+        'features': comparison['features'] if comparison else [],
         'depth': depth,
         'left_flank_len': len(left),
         'right_flank_len': len(right),

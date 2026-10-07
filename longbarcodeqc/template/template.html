@@ -56,6 +56,7 @@
   .g2 { grid-template-columns: 1fr 1fr; }
   .g-5-7 { grid-template-columns: 5fr 7fr; }
   .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; min-width: 0; }
+  .card h2 .map-label { text-transform: none; letter-spacing: 0; font-size: 14px; color: var(--ink); font-weight: 650; }
   .card h2 { margin: 0 0 12px; font-size: 13px; font-weight: 650; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-2); display: flex; align-items: center; gap: 6px; }
   .card p.note { color: var(--ink-2); font-size: 13px; margin: 8px 0 0; }
   .card + .card { margin-top: 16px; }
@@ -64,9 +65,13 @@
   /* info tooltips */
   .info { position: relative; display: inline-flex; width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--line-strong); color: var(--muted); font-size: 10.5px; font-weight: 700; align-items: center; justify-content: center; cursor: help; text-transform: none; letter-spacing: 0; }
   .info:hover::after, .info:focus::after {
-    content: attr(data-tip); position: absolute; left: 22px; top: -6px; z-index: 5; width: 300px;
+    content: attr(data-tip); position: absolute; left: 22px; top: -6px; z-index: 5; width: min(300px, 70vw);
+    text-align: left;
     background: var(--ink); color: #fff; font-size: 12.5px; font-weight: 400; line-height: 1.45; padding: 8px 10px; border-radius: 6px;
   }
+
+  /* icons near the right edge open their tooltip to the left */
+  .info.tip-left:hover::after, .info.tip-left:focus::after { left: auto; right: 22px; }
 
   /* tables */
   table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
@@ -75,7 +80,7 @@
   td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   tr:last-child td, tr:last-child th { border-bottom: 0; }
   .grid > .card + .card { margin-top: 0; }
-  .legend { display: flex; justify-content: center; gap: 18px; color: var(--ink-2); font-size: 12.5px; margin-top: 4px; }
+  .legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 18px; color: var(--ink-2); font-size: 12.5px; margin-top: 4px; }
   .legend i { display: inline-block; vertical-align: middle; margin-right: 6px; }
   table.kv th { color: var(--ink-2); font-size: 13.5px; font-weight: 450; width: 55%; }
   table.kv td { text-align: right; font-variant-numeric: tabular-nums; font-weight: 550; }
@@ -262,12 +267,13 @@
   <section class="tab" id="backbone">
     <div class="grid g2">
       <div class="card">
-        <h2>Plasmid map <span class="info" tabindex="0" data-tip="Backbone consensus drawn around the plasmid with the MCS at the top. The blue band is read depth; black ticks inside the ring mark differences from the reference.">?</span></h2>
+        <h2>Plasmid map{% if b.comparison %} <span class="map-label">{{ b.comparison.ref_label }}</span>{% endif %} <span class="info" tabindex="0" data-tip="Backbone consensus drawn around the plasmid with the MCS at the top. Reference features sit on the ring, pointing in their strand direction. The blue band inside the ring is read depth; black ticks just inside it mark differences from the reference.">?</span></h2>
         {{ b.map_plot }}
         <div class="legend">
-          <span><i style="width:14px;height:8px;background:#e1ecfa;border-top:2px solid var(--data)"></i>Read depth</span>
+          {% for label, color in b.feature_kinds %}<span><i style="width:10px;height:10px;background:{{ color }}"></i>{{ label }}</span>{% endfor %}
           <span><i style="width:10px;height:10px;background:#eb6834"></i>Right flank</span>
           <span><i style="width:10px;height:10px;background:#1baf7a"></i>Left flank</span>
+          <span><i style="width:14px;height:8px;background:#e1ecfa;border-top:2px solid var(--data)"></i>Read depth</span>
           {% if b.comparison and b.comparison.variants %}<span><i style="width:1.5px;height:12px;background:var(--ink)"></i>Difference from reference</span>{% endif %}
         </div>
       </div>
@@ -275,11 +281,13 @@
         <h2>Backbone consensus <span class="info" tabindex="0" data-tip="Built from full-length target reads: everything outside the MCS, from the right flank around to the end of the left flank. Both flanks are included.">?</span></h2>
         <table class="kv">
           <tr><th>Consensus length</th><td>{{ '{:,}'.format(b.sequence|length) }} bp</td></tr>
+          <tr><th>Built from</th><td>{{ 'Target plasmid' if b.read_type == 'plasmid' else b.read_type }} reads</td></tr>
           <tr><th>Full-length reads used</th><td>{{ '{:,}'.format(b.reads_used) }} of {{ '{:,}'.format(b.reads_anchored) }}</td></tr>
           <tr><th>Most common backbone length</th><td>{{ '{:,}'.format(b.peak_len) }} bp ± {{ b.length_tolerance }}%</td></tr>
           <tr><th>Read depth</th><td>mean {{ '{:,.0f}'.format(b.mean_depth) }}×, min {{ '{:,}'.format(b.min_depth) }}×</td></tr>
           <tr><th>Uncalled bases (N) <span class="info" tabindex="0" data-tip="Positions where reads disagree too much to call a base, most often at Dam (GATC) and Dcm (CCWGG) methylation sites that nanopore basecalling miscalls.">?</span></th><td>{{ b.n_count }}</td></tr>
           {% if b.comparison %}{% set c = b.comparison %}
+          <tr><th>Reference</th><td>{{ c.ref_label }}{% if c.ref_source != c.ref_label %} <span class="info" tabindex="0" data-tip="Backbone cut from {{ c.ref_source }}: everything outside the barcode cassette, oriented like the consensus.">?</span>{% endif %}</td></tr>
           <tr><th>Reference backbone length</th><td>{{ '{:,}'.format(c.ref_len) }} bp</td></tr>
           <tr><th>Identity to reference <span class="info" tabindex="0" data-tip="Over the aligned bases, leaving out uncalled bases and indels over {{ c.large_indel }} bp.">?</span></th><td>{{ '%.2f' % (100 * c.identity) }}%</td></tr>
           <tr><th>Substitutions</th><td>{{ c.n_substitutions }}</td></tr>
@@ -300,18 +308,18 @@
       <h2>Differences from reference</h2>
       <div class="scroll">
         <table>
-          <thead><tr><th>Type</th><th class="num">Size (bp)</th><th class="num">Plasmid pos.</th><th class="num">Backbone pos.</th><th class="num">Consensus pos.</th><th>Reference</th><th>Consensus</th></tr></thead>
+          <thead><tr><th>Type</th><th class="num">Size (bp)</th><th>Feature</th><th class="num">Backbone pos.</th><th class="num">Consensus pos.</th><th>Reference</th><th>Consensus</th></tr></thead>
           <tbody>
           {% for v in b.comparison.variants %}
             <tr><td>{{ v.type }}{% if v.size > b.comparison.large_indel %} <span class="badge">large</span>{% endif %}</td>
-                <td class="num">{{ '{:,}'.format(v.size) }}</td><td class="num">{{ '{:,}'.format(v.plasmid_pos) }}</td>
+                <td class="num">{{ '{:,}'.format(v.size) }}</td><td>{{ v.feature or '–' }}</td>
                 <td class="num">{{ '{:,}'.format(v.backbone_pos) }}</td><td class="num">{{ '{:,}'.format(v.consensus_pos) }}</td>
                 <td>{{ v.ref }}</td><td>{{ v.alt }}</td></tr>
           {% endfor %}
           </tbody>
         </table>
       </div>
-      <p class="note">Positions are 1-based; plasmid positions refer to the input reference.</p>
+      <p class="note">Positions are 1-based. The reference backbone and the consensus both start at the first base of the right flank.</p>
     </div>
     {% endif %}
   </section>
@@ -348,6 +356,13 @@
       btn.classList.add('active');
       document.getElementById('rs-card').classList.toggle('view-mcs', btn.dataset.view === 'mcs');
     });
+  });
+  document.querySelectorAll('.info').forEach(function (icon) {
+    function place() {
+      icon.classList.toggle('tip-left', icon.getBoundingClientRect().right + 330 > window.innerWidth);
+    }
+    icon.addEventListener('mouseenter', place);
+    icon.addEventListener('focus', place);
   });
   document.querySelectorAll('button.copy').forEach(function (btn) {
     btn.addEventListener('click', function (e) {

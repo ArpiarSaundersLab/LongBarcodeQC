@@ -2,7 +2,7 @@
 
 ```text
 usage: lbqc [-h] [-v] -i INPUT -o OUTPUT [-p PLASMID] -b BARCODES [-l INSERT_LENGTH] [-f FLANKS] [-r ENZYMES] [-a] [-T]
-            [-S] [-z ZSCORE] [-N EXPECTED_INSERTIONS] [--full-output]
+            [-S] [-c] [-z ZSCORE] [-N EXPECTED_INSERTIONS] [--full-output]
 
 Analyze long-read barcodes and generate a summary report
 
@@ -37,6 +37,11 @@ options:
                         cutadapt. Off by default.
   -S, --SBARRO          Use this option if the plasmid is part of the SBARRO system (derived from c.18). Reference will be
                         generated with NNN sequence inserted into the MCS (length of NNNs equal to provided insert length).
+  -c, --consensus       Build a consensus of the plasmid backbone (everything outside the MCS, flanks included) from full-
+                        length reads, compare it to the expected backbone, and add it to the html report. The expected
+                        backbone is the expression vector with -S, AP-Amp or AP-Kan (whichever has more reads) for the
+                        default plasmids, or the plasmid given with -p. Writes <name>.backbone_consensus.fa and
+                        <name>.backbone.bam.
   -z ZSCORE, --zscore ZSCORE
                         Optionally set z-score threshold for barcode calling. The default threshold is set by using the
                         z-score for the worst performing barcode alignment in the library (absolute value). Sometimes this

@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import glob
 import os
 import sys
 from datetime import datetime
@@ -68,24 +69,45 @@ def main(args=None):
     else:
         preprocess.process_ref(output_dir, args.plasmid)
     print('Preparing reference plasmid...')
-    # keep the target plasmid sequence (the concatenated ref file is removed after alignment)
-    ref_seq = preprocess.read_ref(output_dir)
+    # keep the target plasmid sequence for a -p consensus reference
+    # (the concatenated ref file is removed after alignment)
+    ref_seq = preprocess.read_ref(output_dir) if args.consensus else None
 
     # map reads to plasmid with minimap2
     summary_align_counts = preprocess.mm2_align(output_dir, read_file, args.AP, is_default_plasmid,
                                                 reads_removed_in_trimming)
 
     # generate barcode alignment & read stats written to csv output
-    backbone_reads = f'{output_dir}/.{exp_name}.backbone_reads.fa'
+    backbone_prefix = f'{output_dir}/.{exp_name}.backbone_reads' if args.consensus else None
     align = barcode_aligner.barcode_scores(output_dir, barcode_design, args.flanks,
                                            args.insert_length, args.enzymes,
                                            args.AP, is_default_plasmid, args.SBARRO,
-                                           backbone_reads)
+                                           backbone_prefix)
 
-    # consensus of the plasmid backbone (everything outside the MCS, flanks included)
-    print('Building backbone consensus...')
-    backbone = consensus.backbone_consensus(output_dir, backbone_reads, args.flanks,
-                                            args.insert_length, ref_seq)
+    # optional consensus of the plasmid backbone (everything outside the MCS, flanks included),
+    # compared to the matching reference backbone:
+    #   -S: the expression vector (EV) map, whatever the barcode set
+    #   default AP plasmids: AP-Amp or AP-Kan, whichever has more reads (built from those reads)
+    #   -p: the provided plasmid, if it contains both flanks
+    backbone = None
+    if args.consensus:
+        if args.SBARRO:
+            backbone_type, reference = 'plasmid', consensus.load_reference('EV')
+        elif is_default_plasmid:
+            backbone_type = ('AP-Kan' if summary_align_counts.get('AP-Kan', 0) >
+                             summary_align_counts.get('AP-Amp', 0) else 'AP-Amp')
+            reference = consensus.load_reference(backbone_type)
+        else:
+            backbone_type = 'plasmid'
+            reference = consensus.reference_from_plasmid(ref_seq, args.flanks, args.insert_length,
+                                                         os.path.basename(args.plasmid))
+        print(f'Building backbone consensus ({reference["name"] if reference else backbone_type})...')
+        backbone = consensus.backbone_consensus(output_dir, f'{backbone_prefix}.{backbone_type}.fa',
+                                                args.flanks, args.insert_length, reference)
+        if backbone is not None:
+            backbone['read_type'] = backbone_type
+        for leftover in glob.glob(f'{backbone_prefix}.*.fa'):
+            os.remove(leftover)
 
     # output verbose parquet with every barcode alignment score per read (can be large)
     if args.full_output:

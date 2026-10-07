@@ -84,6 +84,14 @@ def getArgs() -> tuple[argparse.Namespace, argparse.ArgumentParser]:
                         'NNN sequence inserted into the MCS (length of NNNs equal to '
                         'provided insert length).',
                         action='store_true')
+    arg_parser.add_argument('-c', '--consensus',
+                        help='Build a consensus of the plasmid backbone (everything outside the MCS, '
+                        'flanks included) from full-length reads, compare it to the expected backbone, '
+                        'and add it to the html report. The expected backbone is the expression vector '
+                        'with -S, AP-Amp or AP-Kan (whichever has more reads) for the default plasmids, '
+                        'or the plasmid given with -p. Writes <name>.backbone_consensus.fa and '
+                        '<name>.backbone.bam.',
+                        action='store_true')
     arg_parser.add_argument('-z', '--zscore',
                         help='Optionally set z-score threshold for barcode calling. The '
                         'default threshold is set by using the z-score for the worst '
