@@ -13,6 +13,7 @@ Documentation: <https://arpiarsaunderslab.github.io/LongBarcodeQC/>
 - Extracts the MCS region from each read using flanking sequence anchors (parasail Smith-Waterman)
 - Scores each read against a barcode library and calls the best-matching barcode per position
 - Detects restriction enzyme cut sites within the MCS
+- Builds a consensus of the plasmid backbone (everything outside the MCS, flanks included) from full-length reads, and compares it to the reference when the reference contains both flanks
 - Generates a self-contained HTML report with interactive plots (read length distributions, barcode heatmaps, z-score distributions, restriction site summaries)
 - Outputs a compressed summary CSV with per-read barcode calls and QC metrics
 
@@ -114,6 +115,8 @@ lbqc \
 | `<name>_summary_report.html` | Self-contained interactive HTML report |
 | `<name>.aligned.fa.gz` | Reads that aligned to the reference plasmid |
 | `<name>.unaligned.fa.gz` | Reads that did not align |
+| `<name>.backbone_consensus.fa` | Consensus of the plasmid outside the MCS, from the downstream flank around to the upstream flank |
+| `<name>.backbone.bam` | Full-length read backbones aligned to the backbone consensus (for inspection, e.g. in IGV) |
 | `<name>.parquet` | Full barcode alignment scores per read (only with `--full-output`) |
 | `<name>.cutadapt.txt` | cutadapt adapter trimming report (only with `-T`) |
 

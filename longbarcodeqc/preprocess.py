@@ -67,6 +67,14 @@ def process_ref(outpath: str, plasmid_path: str) -> None:
             full_seq_concat = 2 * full_seq
             out.write(full_seq_concat.strip() + '\n')
 
+def read_ref(outpath: str) -> str:
+    """Return the single-copy (uppercase) target plasmid sequence from the concatenated reference."""
+    exp_name = os.path.basename(outpath)
+    with open(f'{outpath}/.{exp_name}.concat.ref.fa', 'r') as fh:
+        fh.readline()
+        seq = ''.join(line.strip() for line in fh).upper()
+    return seq[:len(seq) // 2]
+
 def _append_doubled_ref(ref_fa_path: str, dest_path: str) -> None:
     """Read a single-record FASTA, concatenate the sequence to itself, and append to dest."""
     with open(ref_fa_path, 'r') as fh:

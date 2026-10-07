@@ -5,6 +5,7 @@ from datetime import datetime
 from importlib.resources import files
 from longbarcodeqc import analysis
 from longbarcodeqc import barcode_aligner
+from longbarcodeqc import consensus
 from longbarcodeqc import parser
 from longbarcodeqc import preprocess
 from longbarcodeqc import trim
@@ -46,6 +47,8 @@ def main(args=None):
         args.plasmid = str(files('longbarcodeqc.plasmids').joinpath('AP-Amp.fa'))
         # set flanks path to default AP flanks
         args.flanks = str(files('longbarcodeqc.plasmids').joinpath('AP_flanks.fa'))
+    if args.SBARRO:
+        args.flanks = str(files('longbarcodeqc.plasmids').joinpath('SBARRO_flanks.fa'))
 
     read_file = f'{output_dir}/{exp_name}.fastq'
     preprocess.rename_reads(read_dir, read_file, exp_name)
@@ -65,15 +68,25 @@ def main(args=None):
     else:
         preprocess.process_ref(output_dir, args.plasmid)
     print('Preparing reference plasmid...')
+    # keep the target plasmid sequence (the concatenated ref file is removed after alignment)
+    ref_seq = preprocess.read_ref(output_dir)
 
     # map reads to plasmid with minimap2
     summary_align_counts = preprocess.mm2_align(output_dir, read_file, args.AP, is_default_plasmid,
                                                 reads_removed_in_trimming)
 
     # generate barcode alignment & read stats written to csv output
+    backbone_reads = f'{output_dir}/.{exp_name}.backbone_reads.fa'
     align = barcode_aligner.barcode_scores(output_dir, barcode_design, args.flanks,
                                            args.insert_length, args.enzymes,
-                                           args.AP, is_default_plasmid, args.SBARRO)
+                                           args.AP, is_default_plasmid, args.SBARRO,
+                                           backbone_reads)
+
+    # consensus of the plasmid backbone (everything outside the MCS, flanks included)
+    print('Building backbone consensus...')
+    backbone = consensus.backbone_consensus(output_dir, backbone_reads, args.flanks,
+                                            args.insert_length, ref_seq)
+
     # output verbose parquet with every barcode alignment score per read (can be large)
     if args.full_output:
         print('\nWriting full barcode alignment file...')
@@ -88,6 +101,8 @@ def main(args=None):
         args.zscore,
         args.expected_insertions,
         user_command,
+        backbone,
+        parser.getVersion(),
     )
     print('Writing summary csv...')
     report.drop(columns=['MCS_seq']).to_csv(f'{output_dir}/{exp_name}_summary.csv.gz')

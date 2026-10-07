@@ -56,8 +56,13 @@ def _process_read(
     query_right,
     mcs_flank_len: int,
     user_matrix,
-) -> dict:
-    """Process a single read; return a row dict of stats."""
+) -> tuple[dict, Optional[str]]:
+    """Process a single read; return (row dict of stats, backbone sequence).
+
+    The backbone is everything outside the MCS, read from the start of the right
+    flank around the circular plasmid to the end of the left flank (both flanks
+    included). It is None when the MCS anchors fail.
+    """
     read_id = longread.name.decode()
     read_len = len(longread)
     seq = longread.seq.decode()
@@ -72,6 +77,9 @@ def _process_read(
 
     failed = start >= end or (end - start) > 2 * mcs_flank_len
     mcs_seq = doubled[start:end]
+    # both search windows repeat with period read_len, so doubling the window
+    # lets the backbone wrap past the end of the read back to the left flank
+    backbone = None if failed else (doubled * 2)[end:start + read_len]
 
     row = {
         'seq_id': read_id,
@@ -96,7 +104,7 @@ def _process_read(
         for rs_name, rs_seq in restriction_sites:
             row[rs_name] = rs_seq in mcs_seq
 
-    return row
+    return row, backbone
 
 
 def _process_batch(
@@ -109,20 +117,30 @@ def _process_batch(
     mcs_flank_len: int,
     user_matrix,
     desc: str,
+    backbone_path: Optional[str] = None,
 ) -> list[dict]:
-    """Process a batch of reads; return a list of row dicts."""
+    """Process a batch of reads; return a list of row dicts.
+
+    If backbone_path is given, the backbone of each anchored read is written there as FASTA.
+    """
     query_left = parasail.profile_create_16(left_flank, user_matrix)
     query_right = parasail.profile_create_16(right_flank, user_matrix)
 
+    backbone_fh = open(backbone_path, 'w') if backbone_path else None
     rows = []
     for i, longread in enumerate(tqdm(reads, desc=desc, bar_format="{desc}: |{bar}| {percentage:3.0f}% ({n} reads)", leave=False)):
         # parasail sequences iterator yields one extra invalid object beyond len()
         if i > (len(reads) - 1):
             continue
-        rows.append(_process_read(
+        row, backbone = _process_read(
             longread, read_type, bc_name_seq, restriction_sites,
             query_left, query_right, mcs_flank_len, user_matrix,
-        ))
+        )
+        rows.append(row)
+        if backbone_fh and backbone:
+            backbone_fh.write(f'>{row["seq_id"]}\n{backbone}\n')
+    if backbone_fh:
+        backbone_fh.close()
     tqdm.write('Done\n')
     return rows
 
@@ -136,10 +154,13 @@ def barcode_scores(
     ap_flag: bool,
     is_default_plasmid: bool,
     SBARRO: bool,
+    backbone_path: Optional[str] = None,
 ) -> pd.DataFrame:
     """Compute barcode alignment scores and read statistics.
 
     Returns a DataFrame with one row per read and columns for scores/metadata.
+    If backbone_path is given, the backbones of anchored target plasmid reads are
+    written there as FASTA (input for the backbone consensus).
     """
     exp_name = os.path.basename(outpath)
 
@@ -180,6 +201,7 @@ def barcode_scores(
         long_reads, target_read_type, bc_name_seq, restriction_sites,
         left_flank, right_flank, mcs_flank_len, user_matrix,
         desc=f'Aligning barcodes ({target_read_type})',
+        backbone_path=backbone_path,
     )
 
     # process AP reads if applicable
