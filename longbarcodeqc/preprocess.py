@@ -8,7 +8,11 @@ from typing import Dict
 
 def rename_reads(input_path: str, output_file: str, exp_name: str) -> None:
     """Merge FASTQ files from a directory (or single file) and rewrite headers
-    with experiment name and sequential IDs."""
+    with experiment name and sequential IDs.
+
+    The output is gzip-compressed as it is written (level 1: about half the size of
+    plain FASTQ for a small fraction of the time higher levels take).
+    """
     if os.path.isfile(input_path):
         fastq_files = [input_path]
     else:
@@ -23,7 +27,7 @@ def rename_reads(input_path: str, output_file: str, exp_name: str) -> None:
 
     print(f'Merging and renaming reads from {len(fastq_files)} file(s)...\n')
     read_count = 0
-    with open(output_file, 'w') as out:
+    with gzip.open(output_file, 'wt', compresslevel=1) as out:
         for fq_path in fastq_files:
             opener = gzip.open if fq_path.endswith('.gz') else open
             with opener(fq_path, 'rt') as reads:

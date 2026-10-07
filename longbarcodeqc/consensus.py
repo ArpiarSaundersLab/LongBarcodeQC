@@ -1,6 +1,8 @@
 import bisect
+import gzip
 import json
 import os
+import random
 import re
 import subprocess
 from importlib.resources import files
@@ -19,6 +21,11 @@ _LENGTH_TOLERANCE = 0.05
 # above, or every length within the full-length cluster would tie)
 _PEAK_WINDOW = 0.01
 _MIN_READS = 5
+# at most this many full-length backbones are used, as a reproducible random subsample.
+# samtools consensus time and memory grow faster than linearly with depth, while the
+# consensus stops changing well before this (500-1,000 reads matched all ~2,000 in tests)
+_MAX_READS = 5000
+_SAMPLE_SEED = 0
 # each round realigns the reads to the previous consensus, which removes the errors
 # carried in from the read used as the starting draft; it usually settles in 3-4 rounds
 _MAX_POLISH_ROUNDS = 5
@@ -31,16 +38,24 @@ _REF_FLANK_MIN_SCORE = 0.8
 _CS_OP_RE = re.compile(r'(:\d+|\*[a-z][a-z]|[+-][a-z]+)')
 
 
-def _read_fasta(path: str) -> list[tuple[str, str]]:
-    records = []
+def _iter_fasta(path: str):
+    """Yield (name, sequence) from a FASTA file one record at a time."""
+    name, chunks = None, []
     with open(path) as fh:
         for line in fh:
             line = line.strip()
             if line.startswith('>'):
-                records.append([line[1:].split()[0], []])
+                if name is not None:
+                    yield name, ''.join(chunks).upper()
+                name, chunks = line[1:].split()[0], []
             elif line:
-                records[-1][1].append(line)
-    return [(name, ''.join(chunks).upper()) for name, chunks in records]
+                chunks.append(line)
+    if name is not None:
+        yield name, ''.join(chunks).upper()
+
+
+def _read_fasta(path: str) -> list[tuple[str, str]]:
+    return list(_iter_fasta(path))
 
 
 def _with_qualities(backbones: list[tuple[str, str]],
@@ -60,7 +75,7 @@ def _with_qualities(backbones: list[tuple[str, str]],
     wanted = dict(backbones)
     complement = str.maketrans('ACGTN', 'TGCAN')
     records = []
-    with open(fastq_path) as fh:
+    with gzip.open(fastq_path, 'rt') as fh:
         for header in fh:
             seq = fh.readline().strip().upper()
             fh.readline()
@@ -286,7 +301,10 @@ def backbone_consensus(
     """Build a consensus of the plasmid backbone (everything outside the MCS, flanks included).
 
     Backbones are cut from each anchored target plasmid read by barcode_aligner. Only
-    full-length backbones (near the most common backbone length) are used. The starting
+    full-length backbones (near the most common backbone length) are used, at most
+    _MAX_READS of them (a fixed-seed random subsample, so reruns give the same result). The
+    backbone file is read twice (lengths, then the chosen sequences) rather than held in
+    memory, since large libraries can have many thousands of 10+ kb backbones. The starting
     draft is a backbone at that length whose read junction (adapter) is furthest from the
     backbone ends, where polishing could not remove it. The draft is polished by repeatedly
     aligning all backbones to it with minimap2 and calling a new consensus with samtools
@@ -303,21 +321,30 @@ def backbone_consensus(
     exp_name = os.path.basename(outpath)
     log_path = f'{outpath}/Log.txt'
 
-    reads = _read_fasta(backbone_reads_path)
-    os.remove(backbone_reads_path)
-    if len(reads) < _MIN_READS:
-        print(f'Warning: only {len(reads)} reads with the MCS found; skipping backbone consensus.')
+    lengths = [(name, len(seq)) for name, seq in _iter_fasta(backbone_reads_path)]
+    if len(lengths) < _MIN_READS:
+        os.remove(backbone_reads_path)
+        print(f'Warning: only {len(lengths)} reads with the MCS found; skipping backbone consensus.')
         return None
 
-    peak_len = _peak_length(np.array([len(seq) for _, seq in reads]))
-    kept = [(name, seq) for name, seq in reads
-            if abs(len(seq) - peak_len) <= _LENGTH_TOLERANCE * peak_len]
-    if len(kept) < _MIN_READS:
-        print(f'Warning: only {len(kept)} full-length backbone reads; '
+    peak_len = _peak_length(np.array([n for _, n in lengths]))
+    full_length = [name for name, n in lengths if abs(n - peak_len) <= _LENGTH_TOLERANCE * peak_len]
+    if len(full_length) < _MIN_READS:
+        os.remove(backbone_reads_path)
+        print(f'Warning: only {len(full_length)} full-length backbone reads; '
               'skipping backbone consensus.')
         return None
+    chosen = set(full_length)
+    if len(full_length) > _MAX_READS:
+        # sample from input order (names are <run>_<read number>), not the order reads came out
+        # of the sorted alignment, which can vary between runs
+        in_order = sorted(full_length, key=lambda name: (len(name), name))
+        chosen = set(random.Random(_SAMPLE_SEED).sample(in_order, _MAX_READS))
+        print(f'Using a random {_MAX_READS:,} of {len(full_length):,} full-length backbones')
+    kept = [(name, seq) for name, seq in _iter_fasta(backbone_reads_path) if name in chosen]
+    os.remove(backbone_reads_path)
 
-    kept = _with_qualities(kept, f'{outpath}/{exp_name}.fastq')
+    kept = _with_qualities(kept, f'{outpath}/{exp_name}.fastq.gz')
     if len(kept) < _MIN_READS:
         print('Warning: could not find base qualities for the backbone reads; '
               'skipping backbone consensus.')
@@ -365,8 +392,10 @@ def backbone_consensus(
         'sequence': seq,
         'header': header,
         'fasta_name': os.path.basename(consensus_path),
-        'reads_anchored': len(reads),
+        'reads_anchored': len(lengths),
+        'reads_full_length': len(full_length),
         'reads_used': len(kept),
+        'max_reads': _MAX_READS,
         'peak_len': peak_len,
         'length_tolerance': int(100 * _LENGTH_TOLERANCE),
         'mean_depth': float(depth.mean()),

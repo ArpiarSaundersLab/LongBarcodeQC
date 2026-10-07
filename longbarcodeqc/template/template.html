@@ -282,7 +282,10 @@
         <table class="kv">
           <tr><th>Consensus length</th><td>{{ '{:,}'.format(b.sequence|length) }} bp</td></tr>
           <tr><th>Built from</th><td>{{ 'Target plasmid' if b.read_type == 'plasmid' else b.read_type }} reads</td></tr>
-          <tr><th>Full-length reads used</th><td>{{ '{:,}'.format(b.reads_used) }} of {{ '{:,}'.format(b.reads_anchored) }}</td></tr>
+          <tr><th>Full-length reads</th><td>{{ '{:,}'.format(b.reads_full_length) }} of {{ '{:,}'.format(b.reads_anchored) }}</td></tr>
+          {% if b.reads_used < b.reads_full_length %}
+          <tr><th>Reads used for consensus <span class="info" tabindex="0" data-tip="At most {{ '{:,}'.format(b.max_reads) }} full-length reads are used, chosen at random with a fixed seed so reruns give the same consensus. More reads add run time without changing the consensus.">?</span></th><td>{{ '{:,}'.format(b.reads_used) }} (random subsample)</td></tr>
+          {% endif %}
           <tr><th>Most common backbone length</th><td>{{ '{:,}'.format(b.peak_len) }} bp ± {{ b.length_tolerance }}%</td></tr>
           <tr><th>Read depth</th><td>mean {{ '{:,.0f}'.format(b.mean_depth) }}×, min {{ '{:,}'.format(b.min_depth) }}×</td></tr>
           <tr><th>Uncalled bases (N) <span class="info" tabindex="0" data-tip="Positions where reads disagree too much to call a base, most often at Dam (GATC) and Dcm (CCWGG) methylation sites that nanopore basecalling miscalls.">?</span></th><td>{{ b.n_count }}</td></tr>

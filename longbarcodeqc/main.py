@@ -51,7 +51,7 @@ def main(args=None):
     if args.SBARRO:
         args.flanks = str(files('longbarcodeqc.plasmids').joinpath('SBARRO_flanks.fa'))
 
-    read_file = f'{output_dir}/{exp_name}.fastq'
+    read_file = f'{output_dir}/{exp_name}.fastq.gz'
     preprocess.rename_reads(read_dir, read_file, exp_name)
 
     # trim ONT Rapid adapter before alignment

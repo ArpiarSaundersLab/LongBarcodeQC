@@ -88,7 +88,11 @@ def trim_fastq_in_place(fastq_path, log_file=None, threads=1):
     left too short to keep), so they can be reported alongside the
     alignment counts.
     """
-    trimmed_path = fastq_path + ".trimmed"
+    # cutadapt compresses its output based on the file name, so keep any .gz at the end
+    if fastq_path.endswith(".gz"):
+        trimmed_path = fastq_path[:-3] + ".trimmed.gz"
+    else:
+        trimmed_path = fastq_path + ".trimmed"
     counts = trim_reads(fastq_path, trimmed_path, log_file=log_file, threads=threads)
     os.replace(trimmed_path, fastq_path)
     return counts["reads_in"] - counts["reads_out"]
