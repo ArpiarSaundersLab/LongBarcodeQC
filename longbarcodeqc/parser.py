@@ -1,10 +1,24 @@
 import argparse
+import re
 import shutil
+import subprocess
 import sys
 import os
 from importlib.metadata import version, PackageNotFoundError
 
 DEFAULT_PLASMID = 'AP'
+# oldest samtools verified to give the same `samtools consensus` output (used by -c/--consensus)
+# as current versions; much older versions (e.g. 1.6) do not have the command at all
+MIN_SAMTOOLS_CONSENSUS = (1, 16)
+
+
+def samtoolsVersion() -> tuple[int, int] | None:
+    """Return the installed samtools (major, minor) version, or None if samtools is not found."""
+    if shutil.which('samtools') is None:
+        return None
+    out = subprocess.run(['samtools', '--version'], capture_output=True, text=True).stdout
+    match = re.match(r'samtools (\d+)\.(\d+)', out)
+    return (int(match.group(1)), int(match.group(2))) if match else None
 
 def getVersion() -> str:
     """Return the installed LongBarcodeQC version, or 'unknown' if not installed."""
@@ -147,6 +161,15 @@ def validateArgs(args: argparse.Namespace, arg_parser: argparse.ArgumentParser) 
     elif args.AP and not args.SBARRO:
         arg_parser.error('No plasmid was provided. The default AP-Amp plasmid cannot be combined with '
                          'the -a/--AP option. Only use the -a option to annotate AP reads as contamination.')
+
+    # the backbone consensus needs `samtools consensus`; check now rather than fail at the end
+    if args.consensus:
+        found = samtoolsVersion()
+        if found is None or found < MIN_SAMTOOLS_CONSENSUS:
+            needed = '.'.join(map(str, MIN_SAMTOOLS_CONSENSUS))
+            have = '.'.join(map(str, found)) if found else 'not found'
+            arg_parser.error(f'-c/--consensus requires samtools >= {needed} (found: {have}). '
+                             f'Update it with: conda install -c conda-forge -c bioconda "samtools>={needed}"')
 
     # verify cutadapt is available when trimming is requested
     if args.trim and shutil.which('cutadapt') is None:

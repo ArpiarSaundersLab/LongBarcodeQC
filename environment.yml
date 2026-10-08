@@ -6,7 +6,7 @@ dependencies:
   - python=3.12
   # external tools
   - minimap2
-  - samtools
+  - samtools>=1.16  # oldest version verified for samtools consensus (-c)
   # compiled python dependencies (no arm64 wheels on PyPI)
   - parasail-python
   - cutadapt>=5.2

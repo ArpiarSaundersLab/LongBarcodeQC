@@ -124,7 +124,7 @@ lbqc \
 ## Requirements
 
 - Python ≥ 3.10
-- minimap2 and samtools (external tools)
+- minimap2 and samtools ≥ 1.16 (external tools; `-c` is verified with 1.16 and later)
 - parasail and cutadapt ≥ 5.2 (compiled dependencies)
 - pandas, matplotlib, seaborn, jinja2, pyarrow, tqdm (pure Python)
 
