@@ -178,16 +178,16 @@ def z_score_barcode_calling(reads_df: pd.DataFrame,
     return summary_df, svg_content, float(z_thresh)
 
 
+# restriction site plots sit in the narrower right column; a smaller figure keeps their text
+# at about the same rendered size as the full-width plots
+_RS_FIGSIZE = (6.6, 3.6)
+_NICE_BINWIDTHS = (1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500)
+_MAX_BINS = 250
+
+
 def _binwidth(max_val: float) -> int:
-    if max_val < 100:
-        return 2
-    elif max_val < 1000:
-        return 5
-    elif max_val < 5000:
-        return 20
-    elif max_val < 10000:
-        return 40
-    return 80
+    """Smallest round bin width that spans the axis in at most ~250 bins."""
+    return next((w for w in _NICE_BINWIDTHS if max_val / w <= _MAX_BINS), _NICE_BINWIDTHS[-1])
 
 
 def _num_positions(df: pd.DataFrame, expected_insertions: int | None) -> int:
@@ -214,11 +214,11 @@ def _group_styles(df: pd.DataFrame, hue_group_col: str, expected_insertions: int
 
 
 def _length_hist(values: pd.Series, groups: pd.Series, styles: Dict[str, tuple[str, str]],
-                 max_len: float, xlabel: str) -> str:
+                 max_len: float, xlabel: str, figsize: tuple[float, float] = (12, 4.2)) -> str:
     """Overlaid step histograms (one per group) with a light area wash."""
     edges = np.arange(0, max_len + _binwidth(max_len), _binwidth(max_len))
     with plt.rc_context(_THEME):
-        fig, ax = plt.subplots(figsize=(12, 4.2))
+        fig, ax = plt.subplots(figsize=figsize)
         for group, (label, color) in styles.items():
             counts, _ = np.histogram(values[groups == group], bins=edges)
             if counts.sum() == 0:
@@ -240,6 +240,7 @@ def read_length_hist(
     hue_group_col: str,
     max_len: int,
     expected_insertions: int | None,
+    figsize: tuple[float, float] = (12, 4.2),
 ) -> str:
     """Generate a read length histogram and return it as an SVG string."""
     target = _target_type(summary_df)
@@ -249,13 +250,14 @@ def read_length_hist(
         df = df[~df.read_type.str.endswith('_failed_anchor') & (df.read_type != 'ecoli')]
     df = df[df.seq_len < max_len]
     groups, styles = _group_styles(df, hue_group_col, expected_insertions, target)
-    return _length_hist(df.seq_len, groups, styles, max_len, 'Read length (bp)')
+    return _length_hist(df.seq_len, groups, styles, max_len, 'Read length (bp)', figsize)
 
 
 def MCS_length_hist(
     summary_df: pd.DataFrame,
     hue_group_col: str,
     expected_insertions: int | None,
+    figsize: tuple[float, float] = (12, 4.2),
 ) -> str:
     """Generate an MCS cassette length histogram and return it as an SVG string."""
     target = _target_type(summary_df)
@@ -263,10 +265,13 @@ def MCS_length_hist(
         ~summary_df.read_type.str.endswith('_failed_anchor') &
         (summary_df.read_type != 'ecoli')
         ].copy()
-    mcs_max = 2.5 * np.mean(df.MCS_len)
+    # axis to the 99.5th percentile (rounded up, plus 100 bp), so the rare longest cassettes
+    # don't squeeze the insertion peaks; MCS lengths are already capped at twice the expected
+    # flank + insert length, so at most a sparse tail is left out
+    mcs_max = (math.ceil(df.MCS_len.quantile(0.995) / 100) * 100 if len(df) else 0) + 100
     df = df[df.MCS_len < mcs_max]
     groups, styles = _group_styles(df, hue_group_col, expected_insertions, target)
-    return _length_hist(df.MCS_len, groups, styles, mcs_max, 'MCS cassette length (bp)')
+    return _length_hist(df.MCS_len, groups, styles, mcs_max, 'MCS cassette length (bp)', figsize)
 
 
 # feature colors by kind (categorical slots not used by the depth band or the flanks)
@@ -484,13 +489,12 @@ def report_gen(
     summary, z_plot, z_thresh_used = z_score_barcode_calling(reads, z_thresh)
 
     # get upper x lim for read length histograms from actual read length distribution,
-    # extended to cover the target plasmid reads: in libraries dominated by short E. coli
-    # reads, the all-reads cutoff can fall below the full-length plasmid peak
+    # extended to cover the full-length target plasmid peak: in libraries dominated by short
+    # E. coli reads, the all-reads cutoff can fall below it
     upper = summary.seq_len.quantile(0.95)
-    target = _target_type(summary)
-    target_lens = summary.seq_len[summary.read_type.isin([target, f'{target}_failed_anchor'])]
+    target_lens = summary.seq_len[summary.read_type == _target_type(summary)]
     if len(target_lens):
-        upper = max(upper, target_lens.quantile(0.99))
+        upper = max(upper, target_lens.quantile(0.95))
     max_len = math.ceil(upper / 1000) * 1000
     max_len = max_len + math.ceil(max_len * 0.1 / 1000) * 1000  # add ~10% buffer
 
@@ -513,8 +517,8 @@ def report_gen(
         restriction_sites.append({
             'name': rs[3:],
             'pct': pct,
-            'read_plot': read_length_hist(summary, rs, max_len, expected_insertions),
-            'mcs_plot': MCS_length_hist(summary, rs, expected_insertions),
+            'read_plot': read_length_hist(summary, rs, max_len, expected_insertions, _RS_FIGSIZE),
+            'mcs_plot': MCS_length_hist(summary, rs, expected_insertions, _RS_FIGSIZE),
         })
 
     metrics = _headline_metrics(summary, alignment_counts, expected_insertions)
