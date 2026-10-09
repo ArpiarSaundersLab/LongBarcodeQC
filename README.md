@@ -13,7 +13,7 @@ Documentation: <https://arpiarsaunderslab.github.io/LongBarcodeQC/>
 - Extracts the MCS region from each read using flanking sequence anchors (parasail Smith-Waterman)
 - Scores each read against a barcode library and calls the best-matching barcode per position
 - Detects restriction enzyme cut sites within the MCS
-- Optionally (`-c`) builds a consensus of the plasmid backbone (everything outside the MCS, flanks included) from full-length reads and compares it to an annotated reference backbone: the expression vector map with `-S`, AP-Amp or AP-Kan (whichever has more reads) for the default assembly plasmids, or the `-p` plasmid when it contains both flanks
+- Optionally (`-c`) builds a consensus of the plasmid backbone (everything outside the MCS, flanks included) from full-length reads and compares it to an annotated reference backbone: the expression vector map with `-S`, AP-Amp or AP-Kan (whichever has more reads) for the default assembly plasmids, or the `-p` plasmid when it contains both flanks. Each difference is listed with its read support (the share of reads that carry it) and any nearby sequence that nanopore basecalling often miscalls (Dam/Dcm methylation sites, homopolymers)
 - Generates a self-contained HTML report with interactive plots (read length distributions, barcode heatmaps, z-score distributions, restriction site summaries)
 - Outputs a compressed summary CSV with per-read barcode calls and QC metrics
 

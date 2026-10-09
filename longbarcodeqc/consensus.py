@@ -36,6 +36,16 @@ _LARGE_INDEL = 50
 # reference backbone to be used for comparison
 _REF_FLANK_MIN_SCORE = 0.8
 _CS_OP_RE = re.compile(r'(:\d+|\*[a-z][a-z]|[+-][a-z]+)')
+_CIGAR_RE = re.compile(r'(\d+)([MIDNSHP=X])')
+# read support for a difference compares each read to the reference with and without
+# the difference, this far either side of it; the read's bases are taken with a little extra
+# on each side (free end gaps) so an indel near the window edge does not decide the vote
+_SUPPORT_WINDOW = 10
+_SUPPORT_PAD = 6
+_SUPPORT_MATRIX = parasail.matrix_create('ACGTN', 2, -3)
+# sequence context is read from the reference this far either side of a difference
+_CONTEXT_MARGIN = 5
+_HOMOPOLYMER_MIN = 5
 
 
 def _iter_fasta(path: str):
@@ -185,10 +195,105 @@ def _reference_backbone(ref_seq: str, flanks_path: str, insert_len: int) -> Opti
     return (ref_seq * 4)[end:start + ref_len], end % ref_len
 
 
-def _compare_to_reference(consensus_path: str, reference: dict, outpath: str,
+def _context(ref_seq: str, start: int, end: int) -> list[str]:
+    """Label sequence that nanopore basecalling often miscalls near a difference.
+
+    Looks at reference bases start..end (0-based, end exclusive; start == end for an
+    insertion) plus _CONTEXT_MARGIN either side for Dam (GATC) and Dcm (CCWGG) methylation
+    sites, which plasmids grown in dam+/dcm+ E. coli carry, and for homopolymers of at
+    least _HOMOPOLYMER_MIN bases (labelled with their full length, e.g. G×6). A site or
+    homopolymer counts if any of it falls in that window.
+    """
+    lo, hi = max(0, start - _CONTEXT_MARGIN), min(len(ref_seq), end + _CONTEXT_MARGIN)
+    labels = []
+    for label, motif in (('Dam (GATC)', 'GATC'), ('Dcm (CCWGG)', 'CC[AT]GG')):
+        # widen the search so a site partly inside the window is found
+        offset = max(0, lo - 4)
+        if any(offset + m.start() < hi and offset + m.end() > lo
+               for m in re.finditer(motif, ref_seq[offset:hi + 4])):
+            labels.append(label)
+    i = lo
+    while i < hi:
+        run_start, run_end = i, i
+        while run_start > 0 and ref_seq[run_start - 1] == ref_seq[i]:
+            run_start -= 1
+        while run_end < len(ref_seq) and ref_seq[run_end] == ref_seq[i]:
+            run_end += 1
+        if run_end - run_start >= _HOMOPOLYMER_MIN:
+            labels.append(f'{ref_seq[i]}×{run_end - run_start}')
+        i = run_end
+    return labels
+
+
+def _read_support(bam_path: str, cons_len: int, ref_seq: str,
+                  diffs: list[tuple[str, int, int, str, str]]) -> list[Optional[float]]:
+    """Fraction of the reads covering each difference that carry it.
+
+    For each difference (kind, reference pos, consensus pos, reference bases, consensus
+    bases; 0-based), the reference from _SUPPORT_WINDOW before it to _SUPPORT_WINDOW after
+    it is compared with and without the difference, so other differences and uncalled
+    bases nearby do not sway the vote. Both versions are aligned to the read's bases over
+    that stretch (reads are aligned to the consensus), and the read counts for the
+    consensus only if it scores higher. Ties stay in the denominator. Comparing whole
+    stretches rather than single columns keeps reads that are each wrong in their own way
+    (as at methylation sites) from adding up to a call none of them supports. Returns None
+    for a difference no read covers.
+    """
+    sites = []
+    for _, r, q, ref_bases, alt in diffs:
+        before = ref_seq[max(0, r - _SUPPORT_WINDOW):r]
+        after = ref_seq[r + len(ref_bases):r + len(ref_bases) + _SUPPORT_WINDOW]
+        lo, hi = max(0, q - len(before)), min(cons_len, q + len(alt) + len(after))
+        sites.append((lo, hi, before + alt + after, before + ref_bases + after))
+    covered = [0] * len(sites)
+    for_consensus = [0] * len(sites)
+
+    proc = subprocess.Popen(['samtools', 'view', '-F', '0x904', bam_path],
+                            stdout=subprocess.PIPE, text=True)
+    for line in proc.stdout:
+        fields = line.split('\t', 11)
+        start, cigar, seq = int(fields[3]) - 1, fields[5], fields[9]
+        # read position at each consensus position the read spans (a base deleted in the
+        # read maps to where the deletion sits), plus one past the aligned end
+        ops = [(int(n), op) for n, op in _CIGAR_RE.findall(cigar)]
+        span = sum(n for n, op in ops if op in 'MDN=X')
+        read_pos = np.empty(span + 1, dtype=np.int64)
+        c, q = 0, 0
+        for n, op in ops:
+            if op in 'M=X':
+                read_pos[c:c + n] = np.arange(q, q + n)
+                c += n
+                q += n
+            elif op in 'DN':
+                read_pos[c:c + n] = q
+                c += n
+            elif op in 'IS':
+                if c == span:  # trailing soft clip: keep the end at the last aligned base
+                    break
+                q += n
+        read_pos[span] = q
+        end = start + span
+        for i, (lo, hi, cons_hap, ref_hap) in enumerate(sites):
+            if start > lo or end < hi:
+                continue
+            segment = seq[read_pos[max(start, lo - _SUPPORT_PAD) - start]:
+                          read_pos[min(end, hi + _SUPPORT_PAD) - start]]
+            covered[i] += 1
+            if not segment:
+                continue
+            cons_score = parasail.sg_dx(cons_hap, segment, 4, 1, _SUPPORT_MATRIX).score
+            ref_score = parasail.sg_dx(ref_hap, segment, 4, 1, _SUPPORT_MATRIX).score
+            for_consensus[i] += cons_score > ref_score
+    if proc.wait() != 0:
+        raise subprocess.CalledProcessError(proc.returncode, f'samtools view {bam_path}')
+    return [k / n if n else None for k, n in zip(for_consensus, covered)]
+
+
+def _compare_to_reference(consensus_path: str, bam_path: str, reference: dict, outpath: str,
                           log_path: str) -> Optional[dict]:
-    """Align the consensus to the reference backbone, list the differences and carry the
-    reference features over to consensus coordinates."""
+    """Align the consensus to the reference backbone, list the differences with their read
+    support and sequence context, and carry the reference features over to consensus
+    coordinates."""
     ref_backbone = reference['sequence']
     ref_path = f'{outpath}/.tmp.backbone.ref.fa'
     _write_fasta(ref_path, [('reference_backbone', ref_backbone)])
@@ -261,6 +366,7 @@ def _compare_to_reference(consensus_path: str, reference: dict, outpath: str,
     def in_features(r: int) -> str:
         return ', '.join(f['name'] for f in reference['features'] if f['start'] <= r + 1 <= f['end'])
 
+    support = _read_support(bam_path, q_len, ref_backbone, variants)
     aligned_ref = int(hit[8]) - int(hit[7])
     return {
         'ref_label': reference['label'],
@@ -285,8 +391,12 @@ def _compare_to_reference(consensus_path: str, reference: dict, outpath: str,
                 'consensus_pos': q + 1,
                 'ref': _show(ref_bases) or '-',
                 'alt': _show(alt) or '-',
+                'support': s,
+                # large differences span many motifs, so context is only given for small ones
+                'context': (_context(ref_backbone, r, r + len(ref_bases))
+                            if len(ref_bases + alt) <= _LARGE_INDEL else []),
             }
-            for kind, r, q, ref_bases, alt in variants
+            for (kind, r, q, ref_bases, alt), s in zip(variants, support)
         ],
     }
 
@@ -313,7 +423,8 @@ def backbone_consensus(
     (left) flank.
 
     If a reference backbone is given (see load_reference / reference_from_plasmid), the
-    consensus is compared to it and its features are carried over to the consensus.
+    consensus is compared to it and its features are carried over to the consensus. Each
+    difference is flagged with its read support and sequence context, not corrected.
 
     Writes {exp}.backbone_consensus.fa and {exp}.backbone.bam (backbones aligned to the
     consensus). Returns a dict of results for the report, or None if it could not be built.
@@ -384,7 +495,7 @@ def backbone_consensus(
 
     comparison = None
     if reference is not None:
-        comparison = _compare_to_reference(consensus_path, reference, outpath, log_path)
+        comparison = _compare_to_reference(consensus_path, final_bam, reference, outpath, log_path)
 
     left, right, _ = _load_flanks(flanks_path, insert_len)
     print(f'Backbone consensus: {len(seq)} bp from {len(kept)} reads\n')

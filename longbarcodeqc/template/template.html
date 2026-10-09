@@ -311,13 +311,15 @@
       <h2>Differences from reference</h2>
       <div class="scroll">
         <table>
-          <thead><tr><th>Type</th><th class="num">Size (bp)</th><th>Feature</th><th class="num">Backbone pos.</th><th class="num">Consensus pos.</th><th>Reference</th><th>Consensus</th></tr></thead>
+          <thead><tr><th>Type</th><th class="num">Size (bp)</th><th>Feature</th><th class="num">Backbone pos.</th><th class="num">Consensus pos.</th><th>Reference</th><th>Consensus</th><th class="num">Support <span class="info tip-left" tabindex="0" data-tip="Percentage of the reads covering this difference that carry it. Each read is compared to the reference with and without the difference (plus 10 bp either side) and counts if it matches the version with the difference better. Under 80% is marked uncertain; under 50%, most reads do not carry it. Flagged differences are kept in the consensus and the counts above.">?</span></th><th>Context <span class="info tip-left" tabindex="0" data-tip="Sequence within 5 bp of the difference that nanopore basecalling often miscalls: Dam (GATC) and Dcm (CCWGG) methylation sites, carried by plasmids grown in standard dam+/dcm+ E. coli, and runs of 5 or more of the same base (e.g. G×6 is six Gs).">?</span></th></tr></thead>
           <tbody>
           {% for v in b.comparison.variants %}
             <tr><td>{{ v.type }}{% if v.size > b.comparison.large_indel %} <span class="badge">large</span>{% endif %}</td>
                 <td class="num">{{ '{:,}'.format(v.size) }}</td><td>{{ v.feature or '–' }}</td>
                 <td class="num">{{ '{:,}'.format(v.backbone_pos) }}</td><td class="num">{{ '{:,}'.format(v.consensus_pos) }}</td>
-                <td>{{ v.ref }}</td><td>{{ v.alt }}</td></tr>
+                <td>{{ v.ref }}</td><td>{{ v.alt }}</td>
+                <td class="num">{% if v.support is none %}–{% else %}{% if v.support < 0.5 %}<span class="badge">minority of reads</span> {% elif v.support < 0.8 %}<span class="badge">uncertain</span> {% endif %}{{ '%.0f' % (100 * v.support) }}%{% endif %}</td>
+                <td>{{ v.context | join(', ') or '–' }}</td></tr>
           {% endfor %}
           </tbody>
         </table>
