@@ -72,6 +72,9 @@
 
   /* icons near the right edge open their tooltip to the left */
   .info.tip-left:hover::after, .info.tip-left:focus::after { left: auto; right: 22px; }
+  /* icons inside a scrolling box (e.g. table headers) place their tooltip on the page, so
+     it floats over the box instead of stretching it */
+  .info.tip-fixed:hover::after, .info.tip-fixed:focus::after { position: fixed; left: var(--tip-x); right: auto; top: var(--tip-y); }
 
   /* tables */
   table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
@@ -311,7 +314,7 @@
       <h2>Differences from reference</h2>
       <div class="scroll">
         <table>
-          <thead><tr><th>Type</th><th class="num">Size (bp)</th><th>Feature</th><th class="num">Backbone pos.</th><th class="num">Consensus pos.</th><th>Reference</th><th>Consensus</th><th class="num">Support <span class="info tip-left" tabindex="0" data-tip="Percentage of the reads covering this difference that carry it. Each read is compared to the reference with and without the difference (plus 10 bp either side) and counts if it matches the version with the difference better. Under 80% is marked uncertain; under 50%, most reads do not carry it. Flagged differences are kept in the consensus and the counts above.">?</span></th><th>Context <span class="info tip-left" tabindex="0" data-tip="Sequence within 5 bp of the difference that nanopore basecalling often miscalls: Dam (GATC) and Dcm (CCWGG) methylation sites, carried by plasmids grown in standard dam+/dcm+ E. coli, and runs of 5 or more of the same base (e.g. G×6 is six Gs).">?</span></th></tr></thead>
+          <thead><tr><th>Type</th><th class="num">Size (bp)</th><th>Feature</th><th class="num">Backbone pos.</th><th class="num">Consensus pos.</th><th>Reference</th><th>Consensus</th><th class="num">Support <span class="info" tabindex="0" data-tip="Percentage of the reads covering this difference that carry it. Each read is compared to the reference with and without the difference (plus 10 bp either side) and counts if it matches the version with the difference better. Under 80% is marked uncertain; under 50%, most reads do not carry it. Flagged differences are kept in the consensus and the counts above.">?</span></th><th>Context <span class="info" tabindex="0" data-tip="Sequence within 5 bp of the difference that nanopore basecalling often miscalls: Dam (GATC) and Dcm (CCWGG) methylation sites, carried by plasmids grown in standard dam+/dcm+ E. coli, and runs of 5 or more of the same base (e.g. G×6 is six Gs).">?</span></th></tr></thead>
           <tbody>
           {% for v in b.comparison.variants %}
             <tr><td>{{ v.type }}{% if v.size > b.comparison.large_indel %} <span class="badge">large</span>{% endif %}</td>
@@ -364,7 +367,17 @@
   });
   document.querySelectorAll('.info').forEach(function (icon) {
     function place() {
-      icon.classList.toggle('tip-left', icon.getBoundingClientRect().right + 330 > window.innerWidth);
+      var rect = icon.getBoundingClientRect();
+      if (icon.closest('.scroll')) {
+        // same size and offsets as the CSS tooltip, opening left when it would not fit
+        var width = Math.min(300, 0.7 * window.innerWidth);
+        var x = rect.right + 6 + width > window.innerWidth - 8 ? rect.left - 6 - width : rect.right + 6;
+        icon.classList.add('tip-fixed');
+        icon.style.setProperty('--tip-x', Math.max(8, x) + 'px');
+        icon.style.setProperty('--tip-y', (rect.top - 6) + 'px');
+      } else {
+        icon.classList.toggle('tip-left', rect.right + 330 > window.innerWidth);
+      }
     }
     icon.addEventListener('mouseenter', place);
     icon.addEventListener('focus', place);
